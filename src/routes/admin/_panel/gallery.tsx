@@ -80,7 +80,7 @@ function GalleryAdmin() {
 
   async function saveDraft() {
     if (!draft) return;
-    if (!draft.title.trim()) return toast.error("Add a title");
+    if (!draft.title.trim()) { toast.error("Add a title"); return; }
     const original = items.find((g) => g.id === draft.id);
     const image_path = draft.image.file
       ? await commitImage(draft.image, "public-media", db.files.upload, db.files.remove)

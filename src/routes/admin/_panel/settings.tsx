@@ -91,11 +91,11 @@ function SiteTab({ initial }: { initial: SiteSettings }) {
 
   function submit() {
     for (const k of ["phone", "whatsapp"] as const) {
-      if (v[k] && !/^[6-9]\d{9}$/.test(v[k])) return toast.error(`${k === "phone" ? "Phone" : "WhatsApp"} must be a 10-digit number`);
+      if (v[k] && !/^[6-9]\d{9}$/.test(v[k])) { toast.error(`${k === "phone" ? "Phone" : "WhatsApp"} must be a 10-digit number`); return; }
     }
-    if (v.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email)) return toast.error("Email looks wrong");
+    if (v.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email)) { toast.error("Email looks wrong"); return; }
     for (const k of ["map_url", "facebook_url", "youtube_url", "x_url"] as const) {
-      if (v[k] && !/^https:\/\//.test(v[k])) return toast.error("Links must start with https://");
+      if (v[k] && !/^https:\/\//.test(v[k])) { toast.error("Links must start with https://"); return; }
     }
     const patch: Partial<SiteSettings> = {};
     TEXT_FIELDS.forEach((f) => ((patch as Record<string, unknown>)[f.key] = String(v[f.key]).trim()));
@@ -151,7 +151,7 @@ function UpdatesTab({ initial }: { initial: SiteSettings }) {
           </div>
         ))}
         <Button variant="navy" onClick={() => {
-          if (list.some((u) => !u.title.trim())) return toast.error("Every update needs a title");
+          if (list.some((u) => !u.title.trim())) { toast.error("Every update needs a title"); return; }
           void save({ updates: [...list].sort((a, b) => b.date.localeCompare(a.date)) });
         }}><Save /> Save updates</Button>
       </div>
@@ -188,8 +188,8 @@ function AccountTab() {
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   async function change() {
-    if (next.length < 10 || !/[A-Za-z]/.test(next) || !/\d/.test(next)) return toast.error("New password: at least 10 characters with a letter and a number");
-    if (next !== confirm) return toast.error("Passwords do not match");
+    if (next.length < 10 || !/[A-Za-z]/.test(next) || !/\d/.test(next)) { toast.error("New password: at least 10 characters with a letter and a number"); return; }
+    if (next !== confirm) { toast.error("Passwords do not match"); return; }
     setBusy(true);
     try {
       await db.auth.changePassword(cur, next);

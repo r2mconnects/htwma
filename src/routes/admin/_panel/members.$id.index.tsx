@@ -36,7 +36,7 @@ function MemberProfile() {
   if (!m) return <EmptyState icon={<UserX className="size-6" />} title="Member not found" text="This record may have been deleted." action={<Button asChild variant="outline"><Link to="/admin/members">Back to members</Link></Button>} />;
 
   async function reveal() {
-    if (ids) return setIds(null);
+    if (ids) { setIds(null); return; }
     const s = await db.members.getSensitive(id);
     await db.audit.log("view_sensitive", "member", id, `Viewed ID numbers of #${m!.member_number}`);
     setIds(s);

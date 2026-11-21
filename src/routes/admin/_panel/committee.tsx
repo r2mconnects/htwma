@@ -64,9 +64,9 @@ function CommitteeAdmin() {
 
   async function save() {
     if (!draft) return;
-    if (!draft.member_id) return toast.error("Choose a member");
-    if (draft.public_phone && !isValidIndianMobile(draft.public_phone)) return toast.error("Enter a valid 10-digit phone");
-    if (draft.term_start && draft.term_end && draft.term_end < draft.term_start) return toast.error("Term end must be after term start");
+    if (!draft.member_id) { toast.error("Choose a member"); return; }
+    if (draft.public_phone && !isValidIndianMobile(draft.public_phone)) { toast.error("Enter a valid 10-digit phone"); return; }
+    if (draft.term_start && draft.term_end && draft.term_end < draft.term_start) { toast.error("Term end must be after term start"); return; }
     setSaving(true);
     try {
       const public_photo_path = await commitImage(draft.photo, "public-media", db.files.upload, db.files.remove);
@@ -93,7 +93,7 @@ function CommitteeAdmin() {
   }
 
   async function saveRole() {
-    if (!roleDraft || !roleDraft.role_name.trim()) return toast.error("Enter a role name");
+    if (!roleDraft || !roleDraft.role_name.trim()) { toast.error("Enter a role name"); return; }
     try {
       await db.committee.saveRole({ ...roleDraft, role_name: roleDraft.role_name.trim() });
       await refresh();

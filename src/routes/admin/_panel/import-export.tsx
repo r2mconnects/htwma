@@ -174,11 +174,11 @@ function ImportPanel() {
 
   async function onFile(file: File | undefined) {
     if (!file) return;
-    if (!/\.(csv|xlsx|xls)$/i.test(file.name)) return toast.error("Choose a .csv or .xlsx file");
-    if (file.size > 5 * 1024 * 1024) return toast.error("File is larger than 5 MB");
+    if (!/\.(csv|xlsx|xls)$/i.test(file.name)) { toast.error("Choose a .csv or .xlsx file"); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error("File is larger than 5 MB"); return; }
     try {
       const parsed = await parseSpreadsheet(file);
-      if (!parsed.rows.length) return toast.error("No data rows found");
+      if (!parsed.rows.length) { toast.error("No data rows found"); return; }
       setFileName(file.name);
       setHeaders(parsed.headers);
       setRows(parsed.rows);
