@@ -10,33 +10,260 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AboutRouteImport } from './routes/about'
+import { Route as CommitteeRouteImport } from './routes/committee'
+import { Route as ContactRouteImport } from './routes/contact'
+import { Route as GalleryRouteImport } from './routes/gallery'
+import { Route as AdminPanelRouteImport } from './routes/admin/_panel'
+import { Route as AdminLoginRouteImport } from './routes/admin/login'
+import { Route as AdminPanelIndexRouteImport } from './routes/admin/_panel/index'
+import { Route as AdminPanelCommitteeRouteImport } from './routes/admin/_panel/committee'
+import { Route as AdminPanelGalleryRouteImport } from './routes/admin/_panel/gallery'
+import { Route as AdminPanelImportExportRouteImport } from './routes/admin/_panel/import-export'
+import { Route as AdminPanelRegistrationFormRouteImport } from './routes/admin/_panel/registration-form'
+import { Route as AdminPanelSettingsRouteImport } from './routes/admin/_panel/settings'
+import { Route as AdminPanelMembersIndexRouteImport } from './routes/admin/_panel/members.index'
+import { Route as AdminPanelMembersNewRouteImport } from './routes/admin/_panel/members.new'
+import { Route as AdminPanelMembersPrintRouteImport } from './routes/admin/_panel/members.print'
+import { Route as AdminPanelMembersIdIndexRouteImport } from './routes/admin/_panel/members.$id.index'
+import { Route as AdminPanelMembersIdEditRouteImport } from './routes/admin/_panel/members.$id.edit'
+import { Route as AdminPanelMembersIdPrintRouteImport } from './routes/admin/_panel/members.$id.print'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CommitteeRoute = CommitteeRouteImport.update({
+  id: '/committee',
+  path: '/committee',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GalleryRoute = GalleryRouteImport.update({
+  id: '/gallery',
+  path: '/gallery',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminPanelRoute = AdminPanelRouteImport.update({
+  id: '/admin/_panel',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminLoginRoute = AdminLoginRouteImport.update({
+  id: '/admin/login',
+  path: '/admin/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminPanelIndexRoute = AdminPanelIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminPanelRoute,
+} as any)
+const AdminPanelCommitteeRoute = AdminPanelCommitteeRouteImport.update({
+  id: '/committee',
+  path: '/committee',
+  getParentRoute: () => AdminPanelRoute,
+} as any)
+const AdminPanelGalleryRoute = AdminPanelGalleryRouteImport.update({
+  id: '/gallery',
+  path: '/gallery',
+  getParentRoute: () => AdminPanelRoute,
+} as any)
+const AdminPanelImportExportRoute = AdminPanelImportExportRouteImport.update({
+  id: '/import-export',
+  path: '/import-export',
+  getParentRoute: () => AdminPanelRoute,
+} as any)
+const AdminPanelRegistrationFormRoute =
+  AdminPanelRegistrationFormRouteImport.update({
+    id: '/registration-form',
+    path: '/registration-form',
+    getParentRoute: () => AdminPanelRoute,
+  } as any)
+const AdminPanelSettingsRoute = AdminPanelSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AdminPanelRoute,
+} as any)
+const AdminPanelMembersIndexRoute = AdminPanelMembersIndexRouteImport.update({
+  id: '/members/',
+  path: '/members/',
+  getParentRoute: () => AdminPanelRoute,
+} as any)
+const AdminPanelMembersNewRoute = AdminPanelMembersNewRouteImport.update({
+  id: '/members/new',
+  path: '/members/new',
+  getParentRoute: () => AdminPanelRoute,
+} as any)
+const AdminPanelMembersPrintRoute = AdminPanelMembersPrintRouteImport.update({
+  id: '/members/print',
+  path: '/members/print',
+  getParentRoute: () => AdminPanelRoute,
+} as any)
+const AdminPanelMembersIdIndexRoute =
+  AdminPanelMembersIdIndexRouteImport.update({
+    id: '/members/$id/',
+    path: '/members/$id/',
+    getParentRoute: () => AdminPanelRoute,
+  } as any)
+const AdminPanelMembersIdEditRoute = AdminPanelMembersIdEditRouteImport.update({
+  id: '/members/$id/edit',
+  path: '/members/$id/edit',
+  getParentRoute: () => AdminPanelRoute,
+} as any)
+const AdminPanelMembersIdPrintRoute =
+  AdminPanelMembersIdPrintRouteImport.update({
+    id: '/members/$id/print',
+    path: '/members/$id/print',
+    getParentRoute: () => AdminPanelRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/committee': typeof CommitteeRoute
+  '/contact': typeof ContactRoute
+  '/gallery': typeof GalleryRoute
+  '/admin': typeof AdminPanelRouteWithChildren
+  '/admin/login': typeof AdminLoginRoute
+  '/admin/committee': typeof AdminPanelCommitteeRoute
+  '/admin/gallery': typeof AdminPanelGalleryRoute
+  '/admin/import-export': typeof AdminPanelImportExportRoute
+  '/admin/registration-form': typeof AdminPanelRegistrationFormRoute
+  '/admin/settings': typeof AdminPanelSettingsRoute
+  '/admin/': typeof AdminPanelIndexRoute
+  '/admin/members/new': typeof AdminPanelMembersNewRoute
+  '/admin/members/print': typeof AdminPanelMembersPrintRoute
+  '/admin/members/': typeof AdminPanelMembersIndexRoute
+  '/admin/members/$id/edit': typeof AdminPanelMembersIdEditRoute
+  '/admin/members/$id/print': typeof AdminPanelMembersIdPrintRoute
+  '/admin/members/$id/': typeof AdminPanelMembersIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/committee': typeof CommitteeRoute
+  '/contact': typeof ContactRoute
+  '/gallery': typeof GalleryRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/admin/committee': typeof AdminPanelCommitteeRoute
+  '/admin/gallery': typeof AdminPanelGalleryRoute
+  '/admin/import-export': typeof AdminPanelImportExportRoute
+  '/admin/registration-form': typeof AdminPanelRegistrationFormRoute
+  '/admin/settings': typeof AdminPanelSettingsRoute
+  '/admin': typeof AdminPanelIndexRoute
+  '/admin/members/new': typeof AdminPanelMembersNewRoute
+  '/admin/members/print': typeof AdminPanelMembersPrintRoute
+  '/admin/members': typeof AdminPanelMembersIndexRoute
+  '/admin/members/$id/edit': typeof AdminPanelMembersIdEditRoute
+  '/admin/members/$id/print': typeof AdminPanelMembersIdPrintRoute
+  '/admin/members/$id': typeof AdminPanelMembersIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/committee': typeof CommitteeRoute
+  '/contact': typeof ContactRoute
+  '/gallery': typeof GalleryRoute
+  '/admin/_panel': typeof AdminPanelRouteWithChildren
+  '/admin/login': typeof AdminLoginRoute
+  '/admin/_panel/committee': typeof AdminPanelCommitteeRoute
+  '/admin/_panel/gallery': typeof AdminPanelGalleryRoute
+  '/admin/_panel/import-export': typeof AdminPanelImportExportRoute
+  '/admin/_panel/registration-form': typeof AdminPanelRegistrationFormRoute
+  '/admin/_panel/settings': typeof AdminPanelSettingsRoute
+  '/admin/_panel/': typeof AdminPanelIndexRoute
+  '/admin/_panel/members/new': typeof AdminPanelMembersNewRoute
+  '/admin/_panel/members/print': typeof AdminPanelMembersPrintRoute
+  '/admin/_panel/members/': typeof AdminPanelMembersIndexRoute
+  '/admin/_panel/members/$id/edit': typeof AdminPanelMembersIdEditRoute
+  '/admin/_panel/members/$id/print': typeof AdminPanelMembersIdPrintRoute
+  '/admin/_panel/members/$id/': typeof AdminPanelMembersIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/about'
+    | '/committee'
+    | '/contact'
+    | '/gallery'
+    | '/admin'
+    | '/admin/login'
+    | '/admin/committee'
+    | '/admin/gallery'
+    | '/admin/import-export'
+    | '/admin/registration-form'
+    | '/admin/settings'
+    | '/admin/'
+    | '/admin/members/new'
+    | '/admin/members/print'
+    | '/admin/members/'
+    | '/admin/members/$id/edit'
+    | '/admin/members/$id/print'
+    | '/admin/members/$id/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/about'
+    | '/committee'
+    | '/contact'
+    | '/gallery'
+    | '/admin/login'
+    | '/admin/committee'
+    | '/admin/gallery'
+    | '/admin/import-export'
+    | '/admin/registration-form'
+    | '/admin/settings'
+    | '/admin'
+    | '/admin/members/new'
+    | '/admin/members/print'
+    | '/admin/members'
+    | '/admin/members/$id/edit'
+    | '/admin/members/$id/print'
+    | '/admin/members/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/about'
+    | '/committee'
+    | '/contact'
+    | '/gallery'
+    | '/admin/_panel'
+    | '/admin/login'
+    | '/admin/_panel/committee'
+    | '/admin/_panel/gallery'
+    | '/admin/_panel/import-export'
+    | '/admin/_panel/registration-form'
+    | '/admin/_panel/settings'
+    | '/admin/_panel/'
+    | '/admin/_panel/members/new'
+    | '/admin/_panel/members/print'
+    | '/admin/_panel/members/'
+    | '/admin/_panel/members/$id/edit'
+    | '/admin/_panel/members/$id/print'
+    | '/admin/_panel/members/$id/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AboutRoute: typeof AboutRoute
+  CommitteeRoute: typeof CommitteeRoute
+  ContactRoute: typeof ContactRoute
+  GalleryRoute: typeof GalleryRoute
+  AdminPanelRoute: typeof AdminPanelRouteWithChildren
+  AdminLoginRoute: typeof AdminLoginRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +275,177 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/committee': {
+      id: '/committee'
+      path: '/committee'
+      fullPath: '/committee'
+      preLoaderRoute: typeof CommitteeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gallery': {
+      id: '/gallery'
+      path: '/gallery'
+      fullPath: '/gallery'
+      preLoaderRoute: typeof GalleryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/_panel': {
+      id: '/admin/_panel'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminPanelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/login': {
+      id: '/admin/login'
+      path: '/admin/login'
+      fullPath: '/admin/login'
+      preLoaderRoute: typeof AdminLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/_panel/': {
+      id: '/admin/_panel/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminPanelIndexRouteImport
+      parentRoute: typeof AdminPanelRoute
+    }
+    '/admin/_panel/committee': {
+      id: '/admin/_panel/committee'
+      path: '/committee'
+      fullPath: '/admin/committee'
+      preLoaderRoute: typeof AdminPanelCommitteeRouteImport
+      parentRoute: typeof AdminPanelRoute
+    }
+    '/admin/_panel/gallery': {
+      id: '/admin/_panel/gallery'
+      path: '/gallery'
+      fullPath: '/admin/gallery'
+      preLoaderRoute: typeof AdminPanelGalleryRouteImport
+      parentRoute: typeof AdminPanelRoute
+    }
+    '/admin/_panel/import-export': {
+      id: '/admin/_panel/import-export'
+      path: '/import-export'
+      fullPath: '/admin/import-export'
+      preLoaderRoute: typeof AdminPanelImportExportRouteImport
+      parentRoute: typeof AdminPanelRoute
+    }
+    '/admin/_panel/registration-form': {
+      id: '/admin/_panel/registration-form'
+      path: '/registration-form'
+      fullPath: '/admin/registration-form'
+      preLoaderRoute: typeof AdminPanelRegistrationFormRouteImport
+      parentRoute: typeof AdminPanelRoute
+    }
+    '/admin/_panel/settings': {
+      id: '/admin/_panel/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminPanelSettingsRouteImport
+      parentRoute: typeof AdminPanelRoute
+    }
+    '/admin/_panel/members/': {
+      id: '/admin/_panel/members/'
+      path: '/members'
+      fullPath: '/admin/members/'
+      preLoaderRoute: typeof AdminPanelMembersIndexRouteImport
+      parentRoute: typeof AdminPanelRoute
+    }
+    '/admin/_panel/members/new': {
+      id: '/admin/_panel/members/new'
+      path: '/members/new'
+      fullPath: '/admin/members/new'
+      preLoaderRoute: typeof AdminPanelMembersNewRouteImport
+      parentRoute: typeof AdminPanelRoute
+    }
+    '/admin/_panel/members/print': {
+      id: '/admin/_panel/members/print'
+      path: '/members/print'
+      fullPath: '/admin/members/print'
+      preLoaderRoute: typeof AdminPanelMembersPrintRouteImport
+      parentRoute: typeof AdminPanelRoute
+    }
+    '/admin/_panel/members/$id/': {
+      id: '/admin/_panel/members/$id/'
+      path: '/members/$id'
+      fullPath: '/admin/members/$id/'
+      preLoaderRoute: typeof AdminPanelMembersIdIndexRouteImport
+      parentRoute: typeof AdminPanelRoute
+    }
+    '/admin/_panel/members/$id/edit': {
+      id: '/admin/_panel/members/$id/edit'
+      path: '/members/$id/edit'
+      fullPath: '/admin/members/$id/edit'
+      preLoaderRoute: typeof AdminPanelMembersIdEditRouteImport
+      parentRoute: typeof AdminPanelRoute
+    }
+    '/admin/_panel/members/$id/print': {
+      id: '/admin/_panel/members/$id/print'
+      path: '/members/$id/print'
+      fullPath: '/admin/members/$id/print'
+      preLoaderRoute: typeof AdminPanelMembersIdPrintRouteImport
+      parentRoute: typeof AdminPanelRoute
+    }
   }
 }
 
+interface AdminPanelRouteChildren {
+  AdminPanelCommitteeRoute: typeof AdminPanelCommitteeRoute
+  AdminPanelGalleryRoute: typeof AdminPanelGalleryRoute
+  AdminPanelImportExportRoute: typeof AdminPanelImportExportRoute
+  AdminPanelRegistrationFormRoute: typeof AdminPanelRegistrationFormRoute
+  AdminPanelSettingsRoute: typeof AdminPanelSettingsRoute
+  AdminPanelIndexRoute: typeof AdminPanelIndexRoute
+  AdminPanelMembersNewRoute: typeof AdminPanelMembersNewRoute
+  AdminPanelMembersPrintRoute: typeof AdminPanelMembersPrintRoute
+  AdminPanelMembersIndexRoute: typeof AdminPanelMembersIndexRoute
+  AdminPanelMembersIdEditRoute: typeof AdminPanelMembersIdEditRoute
+  AdminPanelMembersIdPrintRoute: typeof AdminPanelMembersIdPrintRoute
+  AdminPanelMembersIdIndexRoute: typeof AdminPanelMembersIdIndexRoute
+}
+
+const AdminPanelRouteChildren: AdminPanelRouteChildren = {
+  AdminPanelCommitteeRoute: AdminPanelCommitteeRoute,
+  AdminPanelGalleryRoute: AdminPanelGalleryRoute,
+  AdminPanelImportExportRoute: AdminPanelImportExportRoute,
+  AdminPanelRegistrationFormRoute: AdminPanelRegistrationFormRoute,
+  AdminPanelSettingsRoute: AdminPanelSettingsRoute,
+  AdminPanelIndexRoute: AdminPanelIndexRoute,
+  AdminPanelMembersNewRoute: AdminPanelMembersNewRoute,
+  AdminPanelMembersPrintRoute: AdminPanelMembersPrintRoute,
+  AdminPanelMembersIndexRoute: AdminPanelMembersIndexRoute,
+  AdminPanelMembersIdEditRoute: AdminPanelMembersIdEditRoute,
+  AdminPanelMembersIdPrintRoute: AdminPanelMembersIdPrintRoute,
+  AdminPanelMembersIdIndexRoute: AdminPanelMembersIdIndexRoute,
+}
+
+const AdminPanelRouteWithChildren = AdminPanelRoute._addFileChildren(
+  AdminPanelRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AboutRoute: AboutRoute,
+  CommitteeRoute: CommitteeRoute,
+  ContactRoute: ContactRoute,
+  GalleryRoute: GalleryRoute,
+  AdminPanelRoute: AdminPanelRouteWithChildren,
+  AdminLoginRoute: AdminLoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
