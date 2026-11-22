@@ -4,6 +4,8 @@ import type {
   CommitteeAssignment,
   CommitteeAssignmentInput,
   CommitteeRole,
+  FeePayment,
+  FeePaymentInput,
   GalleryItem,
   GalleryItemInput,
   Member,
@@ -26,9 +28,6 @@ export interface DataProvider {
 
   auth: {
     getSession(): Promise<AdminSession | null>;
-    /** True when no admin exists yet (local mode first run). */
-    needsSetup(): Promise<boolean>;
-    setupFirstAdmin(input: { email: string; password: string; display_name: string }): Promise<AdminSession>;
     signIn(email: string, password: string): Promise<AdminSession>;
     signOut(): Promise<void>;
     verifyPassword(password: string): Promise<boolean>;
@@ -48,6 +47,14 @@ export interface DataProvider {
     remove(id: string): Promise<void>;
     isNumberTaken(memberNumber: string, excludeId: string | null): Promise<boolean>;
     bulkCreate(inputs: MemberInput[]): Promise<number>;
+  };
+
+  fees: {
+    list(): Promise<FeePayment[]>;
+    /** Leave receipt_number blank to auto-number (R-0001, R-0002…). */
+    create(input: FeePaymentInput): Promise<FeePayment>;
+    update(id: string, input: FeePaymentInput): Promise<FeePayment>;
+    remove(id: string): Promise<void>;
   };
 
   committee: {

@@ -25,24 +25,16 @@ export const Route = createFileRoute("/admin/login")({
   component: LoginPage,
 });
 
-const setupSchema = z
-  .object({
-    display_name: z.string().trim().min(2, "Enter your name").max(60),
-    email: z.string().trim().email("Enter a valid email").max(120),
-    password: z
-      .string()
-      .min(10, "Use at least 10 characters")
-      .regex(/[A-Za-z]/, "Include a letter")
-      .regex(/\d/, "Include a number"),
-    confirm: z.string(),
-  })
-  .refine((v) => v.password === v.confirm, { message: "Passwords do not match", path: ["confirm"] });
+const loginSchema = z.object({
+  email: z.string().trim().email("Enter your admin Gmail ID").max(120),
+  password: z.string().min(1, "Enter your password").max(200),
+});
 
 function LoginPage() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"loading" | "setup" | "login" | "reset">("loading");
+  const [mode, setMode] = useState<"loading" | "login" | "reset">("loading");
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({ display_name: "", email: "", password: "", confirm: "" });
+  const [form, setForm] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -51,7 +43,7 @@ function LoginPage() {
         navigate({ to: "/admin", replace: true });
         return;
       }
-      setMode((await db.auth.needsSetup()) ? "setup" : "login");
+      setMode("login");
     })();
   }, [navigate]);
 
@@ -60,23 +52,20 @@ function LoginPage() {
     setErrors({});
     setBusy(true);
     try {
-      if (mode === "setup") {
-        const r = setupSchema.safeParse(form);
+      if (mode === "reset") {
+        await db.auth.requestPasswordReset(form.email);
+        toast.success("If this email is an admin, a reset link has been sent.");
+        setMode("login");
+        return;
+      } else {
+        const r = loginSchema.safeParse(form);
         if (!r.success) {
           const errs: Record<string, string> = {};
           r.error.issues.forEach((i) => (errs[String(i.path[0])] = i.message));
           setErrors(errs);
           return;
         }
-        await db.auth.setupFirstAdmin(r.data);
-        toast.success("Admin account created");
-      } else if (mode === "reset") {
-        await db.auth.requestPasswordReset(form.email);
-        toast.success("If this email is an admin, a reset link has been sent.");
-        setMode("login");
-        return;
-      } else {
-        await db.auth.signIn(form.email, form.password);
+        await db.auth.signIn(r.data.email, r.data.password);
       }
       navigate({ to: "/admin", replace: true });
     } catch (err) {
@@ -135,29 +124,27 @@ function LoginPage() {
                 </div>
                 <div>
                   <h2 className="font-display text-2xl font-bold text-navy">
-                    {mode === "setup" ? "Create admin account" : mode === "reset" ? "Reset password" : "Admin sign in"}
+                    {mode === "reset" ? "Reset password" : "Admin sign in"}
                   </h2>
                   <p className="text-sm text-muted-foreground">
-                    {mode === "setup" ? "First-time setup — this becomes the primary admin." : "Authorised administrators only."}
+                    Sign in with the association's admin Gmail ID and password.
                   </p>
                 </div>
               </div>
-              {mode === "setup" && field("display_name", "Your name")}
-              {field("email", "Email", "email", "username")}
-              {mode !== "reset" && field("password", "Password", "password", mode === "setup" ? "new-password" : "current-password")}
-              {mode === "setup" && field("confirm", "Confirm password", "password", "new-password")}
+              {field("email", "Gmail ID", "email", "username")}
+              {mode !== "reset" && field("password", "Password", "password", "current-password")}
               <Button type="submit" variant="navy" size="xl" className="w-full" disabled={busy}>
                 {busy && <Loader2 className="animate-spin" />}
-                {mode === "setup" ? "Create account & continue" : mode === "reset" ? "Send reset link" : "Sign in"}
+                {mode === "reset" ? "Send reset link" : "Sign in"}
               </Button>
-              {db.kind === "supabase" && mode !== "setup" && (
+              {db.kind === "supabase" && (
                 <button type="button" className="w-full text-center text-sm text-primary hover:underline" onClick={() => setMode(mode === "reset" ? "login" : "reset")}>
                   {mode === "reset" ? "Back to sign in" : "Forgot password?"}
                 </button>
               )}
               {db.kind === "local" && (
                 <p className="rounded-lg bg-secondary p-3 text-xs text-secondary-foreground">
-                  Local mode: records are saved only in this browser on this device. Keep your password safe — it cannot be recovered. Connect Supabase for multi-device access and email password reset.
+                  Records are currently saved in this browser on this device. Connect Supabase to see the same records on every device.
                 </p>
               )}
             </form>

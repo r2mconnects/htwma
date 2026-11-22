@@ -6,6 +6,7 @@ import type {
   AuditLog,
   CommitteeAssignment,
   CommitteeRole,
+  FeePayment,
   GalleryItem,
   Member,
   MemberInput,
@@ -16,6 +17,7 @@ import type {
 import { DEFAULT_SETTINGS } from "../defaults";
 import { buildSeed } from "./seed";
 import { compareMemberNumbers, normalizeMemberNumber, sensitiveLast4 } from "@/lib/members";
+import { nextReceiptNumber } from "@/lib/fees";
 
 /**
  * LOCAL BROWSER BACKEND
@@ -33,7 +35,9 @@ const K = {
   assignments: "htwma.committee_assignments",
   gallery: "htwma.gallery",
   audit: "htwma.audit",
-  admin: "htwma.admin",
+  admin: "htwma.admin.v2",
+  fees: "htwma.fees",
+  feesSeeded: "htwma.seeded.fees.v1",
   session: "htwma.session",
   attempts: "htwma.login_attempts",
 } as const;
@@ -76,6 +80,38 @@ function ensureSeeded() {
   localStorage.setItem(K.seeded, new Date().toISOString());
 }
 
+/** Demo fee payments for the demo members (added once, also for browsers seeded earlier). */
+function ensureFeesSeeded() {
+  if (!isBrowser() || localStorage.getItem(K.feesSeeded)) return;
+  const existing = read<FeePayment[]>(K.fees, []);
+  const demo = read<Member[]>(K.members, []).filter((m) => m.is_demo && m.status !== "archived");
+  const year = String(new Date().getFullYear());
+  const payments: FeePayment[] = [];
+  demo.forEach((m, i) => {
+    const day = `${year}-11-${String(Math.min(2 + i, 20)).padStart(2, "0")}`;
+    payments.push(demoPayment(m.id, "Registration", day, "", payments.length + existing.length + 1));
+    if (i < 3) payments.push(demoPayment(m.id, "Annual", day, year, payments.length + existing.length + 1));
+  });
+  write(K.fees, [...existing, ...payments]);
+  localStorage.setItem(K.feesSeeded, new Date().toISOString());
+}
+
+function demoPayment(memberId: string, type: FeePayment["fee_type"], day: string, period: string, n: number): FeePayment {
+  return {
+    id: crypto.randomUUID(),
+    member_id: memberId,
+    amount: 199,
+    fee_type: type,
+    payment_mode: n % 2 ? "Cash" : "UPI",
+    paid_on: day,
+    period,
+    receipt_number: `R-${String(n).padStart(4, "0")}`,
+    notes: "Demo payment — safe to delete.",
+    is_demo: true,
+    created_at: new Date().toISOString(),
+  };
+}
+
 const now = () => new Date().toISOString();
 const uid = () => crypto.randomUUID();
 
@@ -103,6 +139,28 @@ interface StoredAdmin {
   salt: string;
   hash: string;
   iterations: number;
+}
+
+/**
+ * Built-in admin account for local mode: htwma@gmail.com.
+ * Only a PBKDF2 hash of the default password is stored here. Changing the
+ * password in Settings replaces it for this browser.
+ */
+export const DEFAULT_ADMIN_EMAIL = "htwma@gmail.com";
+const DEFAULT_ADMIN: StoredAdmin = {
+  user_id: "00000000-0000-4000-8000-000000000001",
+  email: DEFAULT_ADMIN_EMAIL,
+  display_name: "HTWMA Admin",
+  salt: "aHR3bWEtZGVmYXVsdC12MQ==",
+  hash: "kZDhMTRsyBA02eeuyAG4f/9V/DX6hEOCSEIXICmN4K0=",
+  iterations: PBKDF2_ITERATIONS,
+};
+
+function getAdmin(): StoredAdmin {
+  const stored = read<StoredAdmin | null>(K.admin, null);
+  if (stored) return stored;
+  if (isBrowser()) write(K.admin, DEFAULT_ADMIN);
+  return DEFAULT_ADMIN;
 }
 
 function requireAdmin(): AdminSession {
@@ -182,6 +240,12 @@ export function createLocalProvider(): DataProvider {
     return read<GalleryItem[]>(K.gallery, []);
   };
 
+  const fees = () => {
+    ensureSeeded();
+    ensureFeesSeeded();
+    return read<FeePayment[]>(K.fees, []);
+  };
+
   const numberTaken = (num: string, excludeId: string | null) => {
     const n = normalizeMemberNumber(num);
     return members().some((m) => m.id !== excludeId && normalizeMemberNumber(m.member_number) === n);
@@ -199,27 +263,8 @@ export function createLocalProvider(): DataProvider {
           localStorage.removeItem(K.session);
           return null;
         }
-        if (!read<StoredAdmin | null>(K.admin, null)) return null;
+        if (s.user_id !== getAdmin().user_id) return null;
         return s;
-      },
-      async needsSetup() {
-        return !read<StoredAdmin | null>(K.admin, null);
-      },
-      async setupFirstAdmin({ email, password, display_name }) {
-        if (read<StoredAdmin | null>(K.admin, null)) throw new Error("An admin account already exists.");
-        const salt = crypto.getRandomValues(new Uint8Array(16));
-        const admin: StoredAdmin = {
-          user_id: uid(),
-          email: email.trim().toLowerCase(),
-          display_name: display_name.trim(),
-          salt: toB64(salt),
-          hash: await hashPassword(password, salt, PBKDF2_ITERATIONS),
-          iterations: PBKDF2_ITERATIONS,
-        };
-        write(K.admin, admin);
-        const session = startSession(admin);
-        await audit("admin_setup", "admin", admin.user_id, "Created first admin account");
-        return session;
       },
       async signIn(email, password) {
         const attempts = read<{ count: number; until: number }>(K.attempts, { count: 0, until: 0 });
@@ -227,12 +272,11 @@ export function createLocalProvider(): DataProvider {
           const mins = Math.ceil((attempts.until - Date.now()) / 60000);
           throw new Error(`Too many failed attempts. Try again in ${mins} minute(s).`);
         }
-        const admin = read<StoredAdmin | null>(K.admin, null);
+        const admin = getAdmin();
         const ok =
-          !!admin &&
           admin.email === email.trim().toLowerCase() &&
           (await hashPassword(password, fromB64(admin.salt), admin.iterations)) === admin.hash;
-        if (!ok || !admin) {
+        if (!ok) {
           const count = attempts.count + 1;
           write(K.attempts, {
             count: count >= MAX_ATTEMPTS ? 0 : count,
@@ -249,14 +293,13 @@ export function createLocalProvider(): DataProvider {
         if (isBrowser()) localStorage.removeItem(K.session);
       },
       async verifyPassword(password) {
-        const admin = read<StoredAdmin | null>(K.admin, null);
-        if (!admin) return false;
+        const admin = getAdmin();
         return (await hashPassword(password, fromB64(admin.salt), admin.iterations)) === admin.hash;
       },
       async changePassword(current, next) {
         requireAdmin();
-        const admin = read<StoredAdmin | null>(K.admin, null);
-        if (!admin || !(await provider.auth.verifyPassword(current))) {
+        const admin = getAdmin();
+        if (!(await provider.auth.verifyPassword(current))) {
           throw new Error("Current password is incorrect.");
         }
         const salt = crypto.getRandomValues(new Uint8Array(16));
@@ -270,7 +313,7 @@ export function createLocalProvider(): DataProvider {
       },
       async requestPasswordReset() {
         throw new Error(
-          "Password reset by email is available after connecting Supabase. In local mode, keep your password safe.",
+          "Password reset by email is available after connecting Supabase.",
         );
       },
     },
@@ -352,6 +395,7 @@ export function createLocalProvider(): DataProvider {
           K.assignments,
           assignments().filter((a) => a.member_id !== id),
         );
+        write(K.fees, fees().filter((f) => f.member_id !== id));
         if (m.photo_path) await provider.files.remove("member-photos", m.photo_path);
         if (m.signature_path) await provider.files.remove("member-signatures", m.signature_path);
         await audit("delete", "member", id, `Permanently deleted member #${m.member_number}`);
@@ -378,6 +422,47 @@ export function createLocalProvider(): DataProvider {
         write(K.private, priv);
         await audit("import", "member", "-", `Imported ${added} member(s)`);
         return added;
+      },
+    },
+
+    fees: {
+      async list() {
+        requireAdmin();
+        return [...fees()].sort((a, b) => b.paid_on.localeCompare(a.paid_on) || b.created_at.localeCompare(a.created_at));
+      },
+      async create(input) {
+        requireAdmin();
+        const list = fees();
+        const member = members().find((m) => m.id === input.member_id);
+        if (!member) throw new Error("Choose a valid member.");
+        const receipt = input.receipt_number.trim() || nextReceiptNumber(list.map((f) => f.receipt_number));
+        if (list.some((f) => f.receipt_number.toUpperCase() === receipt.toUpperCase())) {
+          throw new Error(`Receipt number ${receipt} is already used.`);
+        }
+        const p: FeePayment = { ...input, receipt_number: receipt, id: uid(), created_at: now(), is_demo: false };
+        write(K.fees, [...list, p]);
+        await audit("create", "fee", p.id, `Recorded ₹${p.amount} ${p.fee_type} fee for #${member.member_number} (receipt ${receipt})`);
+        return p;
+      },
+      async update(id, input) {
+        requireAdmin();
+        const list = fees();
+        const existing = list.find((f) => f.id === id);
+        if (!existing) throw new Error("Payment not found.");
+        const receipt = input.receipt_number.trim() || existing.receipt_number;
+        if (list.some((f) => f.id !== id && f.receipt_number.toUpperCase() === receipt.toUpperCase())) {
+          throw new Error(`Receipt number ${receipt} is already used.`);
+        }
+        const updated: FeePayment = { ...existing, ...input, receipt_number: receipt };
+        write(K.fees, list.map((f) => (f.id === id ? updated : f)));
+        await audit("update", "fee", id, `Edited payment ${receipt} (₹${updated.amount})`);
+        return updated;
+      },
+      async remove(id) {
+        requireAdmin();
+        const p = fees().find((f) => f.id === id);
+        write(K.fees, fees().filter((f) => f.id !== id));
+        await audit("delete", "fee", id, `Deleted payment ${p?.receipt_number ?? ""} (₹${p?.amount ?? 0})`);
       },
     },
 
@@ -594,6 +679,7 @@ export function createLocalProvider(): DataProvider {
           committee_roles: roles(),
           committee_assignments: assignments(),
           gallery: gallery(),
+          fees: fees(),
           audit: read(K.audit, []),
           files,
         };
@@ -610,6 +696,8 @@ export function createLocalProvider(): DataProvider {
         write(K.roles, d["committee_roles"] ?? []);
         write(K.assignments, d["committee_assignments"] ?? []);
         write(K.gallery, d["gallery"] ?? []);
+        write(K.fees, d["fees"] ?? []);
+        localStorage.setItem(K.feesSeeded, new Date().toISOString());
         write(K.audit, d["audit"] ?? []);
         const files = (d["files"] ?? {}) as Record<string, string>;
         for (const [key, dataUrl] of Object.entries(files)) {
@@ -633,13 +721,17 @@ export function createLocalProvider(): DataProvider {
           K.assignments,
           assignments().filter((a) => !demoIds.has(a.member_id)),
         );
+        const feeList = fees();
+        const keptFees = feeList.filter((f) => !f.is_demo && !demoIds.has(f.member_id));
+        write(K.fees, keptFees);
         const demoPhotos = gallery().filter((g) => g.is_demo).length;
         write(
           K.gallery,
           gallery().filter((g) => !g.is_demo),
         );
-        await audit("delete", "system", "-", `Removed ${demoIds.size} demo members and ${demoPhotos} demo photos`);
-        return demoIds.size + demoPhotos;
+        const demoFees = feeList.length - keptFees.length;
+        await audit("delete", "system", "-", `Removed ${demoIds.size} demo members, ${demoFees} demo payments and ${demoPhotos} demo photos`);
+        return demoIds.size + demoPhotos + demoFees;
       },
     },
   };

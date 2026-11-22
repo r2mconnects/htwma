@@ -45,6 +45,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   ],
   form_code: "REGISTRATION FORM F-140/2020, HINDUPUR",
   required_fields: ["mobile"],
+  fee_defaults: { Registration: 199, Annual: 199 },
 };
 
 export const DEFAULT_ROLES = [

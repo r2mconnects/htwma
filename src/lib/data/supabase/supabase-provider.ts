@@ -5,6 +5,7 @@ import type {
   AdminSession,
   CommitteeAssignment,
   CommitteeRole,
+  FeePayment,
   GalleryItem,
   Member,
   MemberInput,
@@ -15,6 +16,7 @@ import type {
 } from "../types";
 import { DEFAULT_SETTINGS } from "../defaults";
 import { compareMemberNumbers, sensitiveLast4 } from "@/lib/members";
+import { nextReceiptNumber } from "@/lib/fees";
 
 /**
  * SUPABASE BACKEND
@@ -88,12 +90,6 @@ export function createSupabaseProvider(url: string, anonKey: string): DataProvid
 
     auth: {
       getSession: currentAdmin,
-      async needsSetup() {
-        return false;
-      },
-      async setupFirstAdmin() {
-        throw new Error("Create the first admin in your Supabase dashboard — see docs/SETUP.md.");
-      },
       async signIn(email, password) {
         const { error } = await sb.auth.signInWithPassword({ email, password });
         if (error) throw new Error("Incorrect email or password.");
@@ -218,6 +214,40 @@ export function createSupabaseProvider(url: string, anonKey: string): DataProvid
         }
         await audit("import", "member", "-", `Imported ${data?.length ?? 0} member(s)`);
         return data?.length ?? 0;
+      },
+    },
+
+    fees: {
+      async list() {
+        const { data, error } = await sb.from("member_fees").select("*").order("paid_on", { ascending: false });
+        fail(error);
+        return ((data ?? []) as FeePayment[]).map((p) => ({ ...p, amount: Number(p.amount) }));
+      },
+      async create(input) {
+        let receipt = input.receipt_number.trim();
+        if (!receipt) {
+          const { data } = await sb.from("member_fees").select("receipt_number");
+          receipt = nextReceiptNumber(((data ?? []) as Array<{ receipt_number: string }>).map((r) => r.receipt_number));
+        }
+        const { data, error } = await sb.from("member_fees").insert({ ...input, receipt_number: receipt }).select("*").single();
+        if (error?.code === "23505") throw new Error(`Receipt number ${receipt} is already used.`);
+        fail(error);
+        const p = data as FeePayment;
+        await audit("create", "fee", p.id, `Recorded ₹${p.amount} ${p.fee_type} fee (receipt ${receipt})`);
+        return { ...p, amount: Number(p.amount) };
+      },
+      async update(id, input) {
+        const { data, error } = await sb.from("member_fees").update(input).eq("id", id).select("*").single();
+        if (error?.code === "23505") throw new Error(`Receipt number ${input.receipt_number} is already used.`);
+        fail(error);
+        await audit("update", "fee", id, `Edited payment ${input.receipt_number}`);
+        const p = data as FeePayment;
+        return { ...p, amount: Number(p.amount) };
+      },
+      async remove(id) {
+        const { error } = await sb.from("member_fees").delete().eq("id", id);
+        fail(error);
+        await audit("delete", "fee", id, "Deleted payment");
       },
     },
 
@@ -368,15 +398,16 @@ export function createSupabaseProvider(url: string, anonKey: string): DataProvid
 
     maintenance: {
       async exportBackup() {
-        const [members, roles, assignments, gallery, settings] = await Promise.all([
+        const [members, roles, assignments, gallery, settings, fees] = await Promise.all([
           provider.members.list(),
           provider.committee.listRoles(),
           provider.committee.listAssignments(),
           provider.gallery.list(),
           provider.content.getSettings(),
+          provider.fees.list(),
         ]);
         await audit("backup", "system", "-", "Downloaded records backup (no ID numbers, no files)");
-        return { app: "htwma", version: 1, source: "supabase", exported_at: new Date().toISOString(), settings, members, committee_roles: roles, committee_assignments: assignments, gallery };
+        return { app: "htwma", version: 1, source: "supabase", exported_at: new Date().toISOString(), settings, members, committee_roles: roles, committee_assignments: assignments, gallery, fees };
       },
       async restoreBackup() {
         throw new Error("Restore Supabase data from your Supabase dashboard backups (Database → Backups).");
@@ -384,6 +415,7 @@ export function createSupabaseProvider(url: string, anonKey: string): DataProvid
       async clearDemoData() {
         const { data: m } = await sb.from("members").delete().eq("is_demo", true).select("id");
         const { data: g } = await sb.from("gallery_items").delete().eq("is_demo", true).select("id");
+        await sb.from("member_fees").delete().eq("is_demo", true);
         await audit("delete", "system", "-", "Removed demo data");
         return (m?.length ?? 0) + (g?.length ?? 0);
       },

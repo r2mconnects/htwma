@@ -13,6 +13,7 @@ export const qk = {
   gallery: ["gallery", "all"] as const,
   publishedGallery: ["gallery", "published"] as const,
   audit: ["audit"] as const,
+  fees: ["fees"] as const,
   file: (bucket: string, path: string) => ["file", bucket, path] as const,
 };
 
@@ -66,4 +67,8 @@ export function useInvalidate() {
   const qc = useQueryClient();
   return (...keys: ReadonlyArray<readonly unknown[]>) =>
     Promise.all(keys.map((k) => qc.invalidateQueries({ queryKey: k })));
+}
+
+export function useFees() {
+  return useQuery({ queryKey: qk.fees, queryFn: () => db.fees.list() });
 }

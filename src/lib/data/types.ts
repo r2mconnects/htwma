@@ -105,6 +105,28 @@ export interface GalleryItem {
 
 export type GalleryItemInput = Omit<GalleryItem, "id" | "created_at" | "is_demo">;
 
+export const FEE_TYPES = ["Registration", "Annual", "Monthly", "Donation", "Fine", "Other"] as const;
+export type FeeType = (typeof FEE_TYPES)[number];
+export const PAYMENT_MODES = ["Cash", "UPI", "Bank transfer", "Cheque"] as const;
+export type PaymentMode = (typeof PAYMENT_MODES)[number];
+
+export interface FeePayment {
+  id: string;
+  member_id: string;
+  amount: number; // whole rupees
+  fee_type: FeeType;
+  payment_mode: PaymentMode;
+  paid_on: string; // yyyy-mm-dd
+  /** "2026" for annual fees, "2026-11" for monthly, free text otherwise. */
+  period: string;
+  receipt_number: string;
+  notes: string;
+  is_demo: boolean;
+  created_at: string;
+}
+
+export type FeePaymentInput = Omit<FeePayment, "id" | "created_at" | "is_demo">;
+
 export interface SiteUpdate {
   id: string;
   title: string;
@@ -149,6 +171,8 @@ export interface SiteSettings {
   updates: SiteUpdate[];
   form_code: string;
   required_fields: ConfigurableField[];
+  /** Suggested amount (₹) per fee type, used to prefill the payment form. */
+  fee_defaults: Partial<Record<FeeType, number>>;
 }
 
 export interface AuditLog {
