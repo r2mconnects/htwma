@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Award, Check, ChevronsUpDown, Phone, EyeOff } from "lucide-react";
+import { Plus, Pencil, Trash2, Award, Check, ChevronsUpDown, Phone, EyeOff, Search } from "lucide-react";
 import { PageHeader, LoadingBlock, Section, EmptyState } from "@/components/admin/common";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { ImageInput, commitImage, emptyImage, type ImageValue } from "@/components/admin/ImageInput";
@@ -48,6 +48,10 @@ function CommitteeAdmin() {
   const [roleDraft, setRoleDraft] = useState<(Omit<CommitteeRole, "id"> & { id: string | null }) | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [q, setQ] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [activeFilter, setActiveFilter] = useState("all");
+  const filtersOn = !!q || roleFilter !== "all" || activeFilter !== "all";
 
   const memberMap = useMemo(() => new Map((members.data ?? []).map((m) => [m.id, m])), [members.data]);
   const refresh = () => invalidate(qk.roles, qk.assignments, qk.publicCommittee);
@@ -114,9 +118,39 @@ function CommitteeAdmin() {
         actions={<Button variant="outline" onClick={() => setRoleDraft({ id: null, role_name: "", display_order: (roles.data?.length ?? 0) + 1, is_multiple_allowed: false })}><Plus /> Add role</Button>}
       />
 
+      <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border bg-card p-4 shadow-card">
+        <div className="relative min-w-56 flex-1">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input className="pl-9" placeholder="Search committee member…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search committee" />
+        </div>
+        <Select value={roleFilter} onValueChange={setRoleFilter}>
+          <SelectTrigger className="w-52" aria-label="Role filter"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All roles</SelectItem>
+            {(roles.data ?? []).map((r) => <SelectItem key={r.id} value={r.id}>{r.role_name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={activeFilter} onValueChange={setActiveFilter}>
+          <SelectTrigger className="w-40" aria-label="Active filter"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Active & inactive</SelectItem>
+            <SelectItem value="active">Active only</SelectItem>
+            <SelectItem value="inactive">Inactive only</SelectItem>
+          </SelectContent>
+        </Select>
+        {filtersOn && <Button variant="ghost" size="sm" onClick={() => { setQ(""); setRoleFilter("all"); setActiveFilter("all"); }}>Clear filters</Button>}
+      </div>
+
       <div className="space-y-5">
-        {(roles.data ?? []).map((role) => {
-          const list = (assignments.data ?? []).filter((a) => a.role_id === role.id);
+        {(roles.data ?? []).filter((role) => roleFilter === "all" || role.id === roleFilter).map((role) => {
+          const term = q.trim().toLowerCase();
+          const list = (assignments.data ?? []).filter((a) => {
+            if (a.role_id !== role.id) return false;
+            if (activeFilter === "active" && !a.is_active) return false;
+            if (activeFilter === "inactive" && a.is_active) return false;
+            return !term || (memberMap.get(a.member_id)?.full_name.toLowerCase().includes(term) ?? false);
+          });
+          if (filtersOn && list.length === 0) return null;
           return (
             <Section key={role.id} title={role.role_name} description={role.is_multiple_allowed ? "Multiple people allowed" : "One active person"} actions={<>
                 <Button size="sm" variant="ghost" onClick={() => setRoleDraft(role)} aria-label="Edit role"><Pencil /></Button>

@@ -1,15 +1,17 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Pencil, Printer, Archive, ArchiveRestore, Trash2, Eye, EyeOff, ArrowLeft, UserX, ShieldCheck } from "lucide-react";
+import { Pencil, Printer, Archive, ArchiveRestore, Trash2, Eye, EyeOff, ArrowLeft, UserX, ShieldCheck, IndianRupee, Plus } from "lucide-react";
 import { PageHeader, StatusBadge, LoadingBlock, EmptyState } from "@/components/admin/common";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { StorageImage } from "@/components/StorageImage";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/data";
-import { qk, useInvalidate, useMember } from "@/lib/data/hooks";
-import type { MemberSensitive } from "@/lib/data/types";
+import { qk, useFees, useInvalidate, useMember, useMembers } from "@/lib/data/hooks";
+import type { FeePayment, MemberSensitive } from "@/lib/data/types";
 import { computeAge, formatDate, maskId } from "@/lib/members";
+import { FeeDialog } from "@/components/admin/FeeDialog";
+import { formatINR, hasPaidAnnual, sumAmounts } from "@/lib/fees";
 
 export const Route = createFileRoute("/admin/_panel/members/$id/")({
   head: () => ({ meta: [{ title: "Member Profile – HTWMA Admin" }, { name: "robots", content: "noindex" }] }),
@@ -31,6 +33,9 @@ function MemberProfile() {
   const invalidate = useInvalidate();
   const { data: m, isLoading } = useMember(id);
   const [ids, setIds] = useState<MemberSensitive | null>(null);
+  const fees = useFees();
+  const allMembers = useMembers();
+  const [feeDialog, setFeeDialog] = useState<{ open: boolean; editing: FeePayment | null }>({ open: false, editing: null });
 
   if (isLoading) return <LoadingBlock />;
   if (!m) return <EmptyState icon={<UserX className="size-6" />} title="Member not found" text="This record may have been deleted." action={<Button asChild variant="outline"><Link to="/admin/members">Back to members</Link></Button>} />;
@@ -50,7 +55,7 @@ function MemberProfile() {
 
   async function remove() {
     await db.members.remove(id);
-    await invalidate(qk.members, qk.assignments, qk.publicCommittee);
+    await invalidate(qk.members, qk.assignments, qk.publicCommittee, qk.fees);
     toast.success("Member permanently deleted");
     navigate({ to: "/admin/members" });
   }
@@ -96,7 +101,7 @@ function MemberProfile() {
               <ConfirmDialog
                 trigger={<Button variant="ghost" className="w-full text-destructive"><Trash2 /> Delete permanently</Button>}
                 title="Permanently delete this member?"
-                description={<p>This removes the record, photo, signature, ID numbers and committee roles. It cannot be undone.</p>}
+                description={<p>This removes the record, photo, signature, ID numbers, fee payments and committee roles. It cannot be undone.</p>}
                 confirmLabel="Delete forever"
                 requireText={m.member_number}
                 onConfirm={remove}
@@ -137,6 +142,12 @@ function MemberProfile() {
             <p className="mt-2 text-xs text-muted-foreground">Viewing full numbers is recorded in the activity log.</p>
           </section>
 
+          <FeesSection
+            payments={(fees.data ?? []).filter((p) => p.member_id === id)}
+            onAdd={() => setFeeDialog({ open: true, editing: null })}
+            onEdit={(p) => setFeeDialog({ open: true, editing: p })}
+          />
+
           <section className="rounded-2xl border bg-card p-5 shadow-card">
             <h2 className="mb-2 font-display text-lg font-bold text-navy">Registration</h2>
             <dl>
@@ -154,6 +165,46 @@ function MemberProfile() {
           </section>
         </div>
       </div>
+      <FeeDialog
+        open={feeDialog.open}
+        editing={feeDialog.editing}
+        presetMemberId={id}
+        members={allMembers.data ?? [m]}
+        onOpenChange={(o) => setFeeDialog({ open: o, editing: o ? feeDialog.editing : null })}
+      />
     </div>
+  );
+}
+
+function FeesSection({ payments, onAdd, onEdit }: { payments: FeePayment[]; onAdd: () => void; onEdit: (p: FeePayment) => void }) {
+  const year = String(new Date().getFullYear());
+  const paid = hasPaidAnnual(payments[0]?.member_id ?? "", payments, year);
+  return (
+    <section className="rounded-2xl border bg-card p-5 shadow-card">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 font-display text-lg font-bold text-navy"><IndianRupee className="size-5 text-primary" /> Fees</h2>
+        <Button size="sm" variant="navy" onClick={onAdd}><Plus /> Record payment</Button>
+      </div>
+      <div className="mb-3 flex flex-wrap gap-3 text-sm">
+        <span className="rounded-lg bg-secondary px-3 py-1.5">Total paid: <strong>{formatINR(sumAmounts(payments))}</strong></span>
+        <span className={`rounded-lg px-3 py-1.5 ${paid ? "bg-success/10 text-success" : "bg-warning/10 text-warning"}`}>
+          Yearly fee {year}: <strong>{paid ? "Paid" : "Not recorded"}</strong>
+        </span>
+      </div>
+      {payments.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No payments recorded yet.</p>
+      ) : (
+        <ul className="divide-y text-sm">
+          {payments.map((p) => (
+            <li key={p.id} className="flex items-center gap-3 py-2">
+              <span className="w-24 text-muted-foreground">{formatDate(p.paid_on)}</span>
+              <span className="flex-1">{p.fee_type}{p.period ? ` · ${p.period}` : ""} <span className="text-xs text-muted-foreground">({p.payment_mode}, {p.receipt_number})</span></span>
+              <span className="font-semibold">{formatINR(p.amount)}</span>
+              <Button size="icon" variant="ghost" aria-label="Edit payment" onClick={() => onEdit(p)}><Pencil /></Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

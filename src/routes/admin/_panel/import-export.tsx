@@ -1,4 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { ALL_TIME, DateRangeFilter, resolveRange, type RangeState } from "@/components/admin/DateRangeFilter";
+import { inRange } from "@/lib/fees";
+import { BLOOD_GROUPS } from "@/lib/members";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Download, Upload, FileSpreadsheet, AlertTriangle, CheckCircle2, ShieldAlert, Loader2, RotateCcw } from "lucide-react";
@@ -36,6 +39,9 @@ function ImportExport() {
       <PageHeader title="Import / Export" description="Bring in member lists from Excel or CSV, or download records." />
       <ExportPanel />
       <ImportPanel />
+      <Section title="Fee payments" description="Fee reports (with date, fee type and payment mode filters) are exported from the Fees page.">
+        <Button asChild variant="outline"><Link to="/admin/fees"><Download /> Go to Fees export</Link></Button>
+      </Section>
     </div>
   );
 }
@@ -48,10 +54,18 @@ function ExportPanel() {
   const [askPassword, setAskPassword] = useState(false);
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [q, setQ] = useState("");
+  const [blood, setBlood] = useState("all");
+  const [regRange, setRegRange] = useState<RangeState>(ALL_TIME);
   const hasSensitive = [...cols].some((c) => MEMBER_COLUMNS.find((x) => x.key === c)?.sensitive);
 
+  const reg = resolveRange(regRange);
+  const term = q.trim().toLowerCase();
   const list = (data ?? []).filter((m) =>
-    scope === "all" ? true : scope === "current" ? m.status !== "archived" : scope === "active" ? m.status === "active" : m.status === "archived",
+    (scope === "all" ? true : scope === "current" ? m.status !== "archived" : scope === "active" ? m.status === "active" : m.status === "archived") &&
+    (blood === "all" || m.blood_group === blood) &&
+    inRange(m.registration_date, reg) &&
+    (!term || m.full_name.toLowerCase().includes(term) || m.garage_name.toLowerCase().includes(term) || m.address.toLowerCase().includes(term)),
   );
 
   async function run(verified: boolean) {
@@ -109,6 +123,23 @@ function ExportPanel() {
             </SelectContent>
           </Select>
         </div>
+        <div>
+          <Label>Blood group</Label>
+          <Select value={blood} onValueChange={setBlood}>
+            <SelectTrigger className="mt-1.5 sm:w-40" aria-label="Export blood group filter"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Any</SelectItem>
+              {BLOOD_GROUPS.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="mt-4 flex flex-wrap items-end gap-3">
+        <div className="min-w-56 flex-1">
+          <Label htmlFor="exp-q">Name, garage or area contains</Label>
+          <Input id="exp-q" className="mt-1.5" value={q} onChange={(e) => setQ(e.target.value)} placeholder="e.g. Parigi Road" />
+        </div>
+        <DateRangeFilter value={regRange} onChange={setRegRange} label="Registered" />
       </div>
       <p className="mb-2 mt-5 text-sm font-medium">Columns</p>
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">

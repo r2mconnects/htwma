@@ -18,6 +18,7 @@ import { Route as AdminPanelRouteImport } from './routes/admin/_panel'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as AdminPanelIndexRouteImport } from './routes/admin/_panel/index'
 import { Route as AdminPanelCommitteeRouteImport } from './routes/admin/_panel/committee'
+import { Route as AdminPanelFeesRouteImport } from './routes/admin/_panel/fees'
 import { Route as AdminPanelGalleryRouteImport } from './routes/admin/_panel/gallery'
 import { Route as AdminPanelImportExportRouteImport } from './routes/admin/_panel/import-export'
 import { Route as AdminPanelRegistrationFormRouteImport } from './routes/admin/_panel/registration-form'
@@ -72,6 +73,11 @@ const AdminPanelIndexRoute = AdminPanelIndexRouteImport.update({
 const AdminPanelCommitteeRoute = AdminPanelCommitteeRouteImport.update({
   id: '/committee',
   path: '/committee',
+  getParentRoute: () => AdminPanelRoute,
+} as any)
+const AdminPanelFeesRoute = AdminPanelFeesRouteImport.update({
+  id: '/fees',
+  path: '/fees',
   getParentRoute: () => AdminPanelRoute,
 } as any)
 const AdminPanelGalleryRoute = AdminPanelGalleryRouteImport.update({
@@ -137,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminPanelRouteWithChildren
   '/admin/login': typeof AdminLoginRoute
   '/admin/committee': typeof AdminPanelCommitteeRoute
+  '/admin/fees': typeof AdminPanelFeesRoute
   '/admin/gallery': typeof AdminPanelGalleryRoute
   '/admin/import-export': typeof AdminPanelImportExportRoute
   '/admin/registration-form': typeof AdminPanelRegistrationFormRoute
@@ -157,6 +164,7 @@ export interface FileRoutesByTo {
   '/gallery': typeof GalleryRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/committee': typeof AdminPanelCommitteeRoute
+  '/admin/fees': typeof AdminPanelFeesRoute
   '/admin/gallery': typeof AdminPanelGalleryRoute
   '/admin/import-export': typeof AdminPanelImportExportRoute
   '/admin/registration-form': typeof AdminPanelRegistrationFormRoute
@@ -179,6 +187,7 @@ export interface FileRoutesById {
   '/admin/_panel': typeof AdminPanelRouteWithChildren
   '/admin/login': typeof AdminLoginRoute
   '/admin/_panel/committee': typeof AdminPanelCommitteeRoute
+  '/admin/_panel/fees': typeof AdminPanelFeesRoute
   '/admin/_panel/gallery': typeof AdminPanelGalleryRoute
   '/admin/_panel/import-export': typeof AdminPanelImportExportRoute
   '/admin/_panel/registration-form': typeof AdminPanelRegistrationFormRoute
@@ -202,6 +211,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/admin/login'
     | '/admin/committee'
+    | '/admin/fees'
     | '/admin/gallery'
     | '/admin/import-export'
     | '/admin/registration-form'
@@ -222,6 +232,7 @@ export interface FileRouteTypes {
     | '/gallery'
     | '/admin/login'
     | '/admin/committee'
+    | '/admin/fees'
     | '/admin/gallery'
     | '/admin/import-export'
     | '/admin/registration-form'
@@ -243,6 +254,7 @@ export interface FileRouteTypes {
     | '/admin/_panel'
     | '/admin/login'
     | '/admin/_panel/committee'
+    | '/admin/_panel/fees'
     | '/admin/_panel/gallery'
     | '/admin/_panel/import-export'
     | '/admin/_panel/registration-form'
@@ -331,6 +343,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminPanelCommitteeRouteImport
       parentRoute: typeof AdminPanelRoute
     }
+    '/admin/_panel/fees': {
+      id: '/admin/_panel/fees'
+      path: '/fees'
+      fullPath: '/admin/fees'
+      preLoaderRoute: typeof AdminPanelFeesRouteImport
+      parentRoute: typeof AdminPanelRoute
+    }
     '/admin/_panel/gallery': {
       id: '/admin/_panel/gallery'
       path: '/gallery'
@@ -406,6 +425,7 @@ declare module '@tanstack/react-router' {
 
 interface AdminPanelRouteChildren {
   AdminPanelCommitteeRoute: typeof AdminPanelCommitteeRoute
+  AdminPanelFeesRoute: typeof AdminPanelFeesRoute
   AdminPanelGalleryRoute: typeof AdminPanelGalleryRoute
   AdminPanelImportExportRoute: typeof AdminPanelImportExportRoute
   AdminPanelRegistrationFormRoute: typeof AdminPanelRegistrationFormRoute
@@ -421,6 +441,7 @@ interface AdminPanelRouteChildren {
 
 const AdminPanelRouteChildren: AdminPanelRouteChildren = {
   AdminPanelCommitteeRoute: AdminPanelCommitteeRoute,
+  AdminPanelFeesRoute: AdminPanelFeesRoute,
   AdminPanelGalleryRoute: AdminPanelGalleryRoute,
   AdminPanelImportExportRoute: AdminPanelImportExportRoute,
   AdminPanelRegistrationFormRoute: AdminPanelRegistrationFormRoute,

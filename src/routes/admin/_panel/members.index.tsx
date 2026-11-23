@@ -10,7 +10,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { db } from "@/lib/data";
-import { qk, useInvalidate, useMembers } from "@/lib/data/hooks";
+import { qk, useFees, useInvalidate, useMembers } from "@/lib/data/hooks";
+import { ALL_TIME, DateRangeFilter, resolveRange, type RangeState } from "@/components/admin/DateRangeFilter";
+import { inRange } from "@/lib/fees";
 import type { Member, MemberStatus } from "@/lib/data/types";
 import { BLOOD_GROUPS, compareMemberNumbers, maskId, normalizePhone } from "@/lib/members";
 import { downloadSheet, memberToExportRow, SAFE_EXPORT_DEFAULT } from "@/lib/import-export";
@@ -33,14 +35,30 @@ function MembersPage() {
   const [sort, setSort] = useState<Sort>("number");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [feeStatus, setFeeStatus] = useState<"all" | "paid" | "unpaid">("all");
+  const [regRange, setRegRange] = useState<RangeState>(ALL_TIME);
+  const fees = useFees();
+  const year = String(new Date().getFullYear());
+  const paidIds = useMemo(
+    () => new Set((fees.data ?? []).filter((p) => p.fee_type === "Annual" && p.period === year).map((p) => p.member_id)),
+    [fees.data, year],
+  );
+  const filtersOn = !!q || status !== "current" || blood !== "all" || feeStatus !== "all" || regRange.preset !== "all";
+  function clearFilters() {
+    setQ(""); setStatus("current"); setBlood("all"); setFeeStatus("all"); setRegRange(ALL_TIME); setPage(1);
+  }
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     const digits = normalizePhone(term);
+    const reg = resolveRange(regRange);
     let list = (data ?? []).filter((m) => {
       if (status === "current" && m.status === "archived") return false;
       if (status !== "all" && status !== "current" && m.status !== status) return false;
       if (blood !== "all" && m.blood_group !== blood) return false;
+      if (feeStatus === "paid" && !paidIds.has(m.id)) return false;
+      if (feeStatus === "unpaid" && paidIds.has(m.id)) return false;
+      if (!inRange(m.registration_date, reg)) return false;
       if (!term) return true;
       return (
         m.full_name.toLowerCase().includes(term) ||
@@ -56,7 +74,7 @@ function MembersPage() {
       return compareMemberNumbers(a.member_number, b.member_number);
     });
     return list;
-  }, [data, q, status, blood, sort]);
+  }, [data, q, status, blood, sort, feeStatus, paidIds, regRange]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const current = Math.min(page, pages);
@@ -107,8 +125,8 @@ function MembersPage() {
         }
       />
 
-      <div className="mb-4 grid gap-3 rounded-2xl border bg-card p-4 shadow-card md:grid-cols-[1fr_auto_auto_auto]">
-        <div className="relative">
+      <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border bg-card p-4 shadow-card">
+        <div className="relative min-w-56 flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="pl-9" placeholder="Search name, ID, garage, mobile…" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} aria-label="Search members" />
         </div>
@@ -129,6 +147,15 @@ function MembersPage() {
             {BLOOD_GROUPS.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select value={feeStatus} onValueChange={(v) => { setFeeStatus(v as typeof feeStatus); setPage(1); }}>
+          <SelectTrigger className="md:w-48" aria-label="Fee status filter"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Any fee status</SelectItem>
+            <SelectItem value="paid">Yearly fee {year} paid</SelectItem>
+            <SelectItem value="unpaid">Yearly fee {year} pending</SelectItem>
+          </SelectContent>
+        </Select>
+        <DateRangeFilter value={regRange} onChange={(v) => { setRegRange(v); setPage(1); }} label="Registered" />
         <Select value={sort} onValueChange={(v) => setSort(v as Sort)}>
           <SelectTrigger className="md:w-40" aria-label="Sort"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -138,6 +165,7 @@ function MembersPage() {
             <SelectItem value="recent">Sort: Recently added</SelectItem>
           </SelectContent>
         </Select>
+        {filtersOn && <Button variant="ghost" size="sm" onClick={clearFilters}>Clear filters</Button>}
       </div>
 
       {selected.size > 0 && (
@@ -151,7 +179,7 @@ function MembersPage() {
       {isLoading ? (
         <LoadingBlock />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={<Users className="size-6" />} title="No members found" text={q ? "Try a different search or filter." : "Add your first member or import from Excel."}
+        <EmptyState icon={<Users className="size-6" />} title="No members found" text={filtersOn ? "Try a different search or filter." : "Add your first member or import from Excel."}
           action={<Button asChild variant="navy"><Link to="/admin/members/new"><UserPlus /> Add member</Link></Button>} />
       ) : (
         <>

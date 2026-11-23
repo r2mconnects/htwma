@@ -2,7 +2,10 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Save, Plus, Trash2, Download, Upload, KeyRound, Database, History, Loader2 } from "lucide-react";
+import { Save, Plus, Trash2, Download, Upload, KeyRound, Database, History, Loader2, Search } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ALL_TIME, DateRangeFilter, resolveRange, type RangeState } from "@/components/admin/DateRangeFilter";
+import { inRange, parseAmount } from "@/lib/fees";
 import { PageHeader, Section, LoadingBlock } from "@/components/admin/common";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { CONFIGURABLE_FIELD_LABELS } from "@/components/admin/MemberForm";
@@ -15,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { db } from "@/lib/data";
 import { qk, useInvalidate, useSettings } from "@/lib/data/hooks";
 import { isPlaceholder } from "@/lib/data/defaults";
-import type { ConfigurableField, SiteSettings } from "@/lib/data/types";
+import { FEE_TYPES, type ConfigurableField, type FeeType, type SiteSettings } from "@/lib/data/types";
 
 export const Route = createFileRoute("/admin/_panel/settings")({
   head: () => ({ meta: [{ title: "Settings – HTWMA Admin" }, { name: "robots", content: "noindex" }] }),
@@ -33,6 +36,7 @@ function SettingsPage() {
           <TabsTrigger value="site">Website</TabsTrigger>
           <TabsTrigger value="updates">Updates</TabsTrigger>
           <TabsTrigger value="form">Member form</TabsTrigger>
+          <TabsTrigger value="fees">Fee amounts</TabsTrigger>
           <TabsTrigger value="account">Account</TabsTrigger>
           <TabsTrigger value="data">Data & backup</TabsTrigger>
           <TabsTrigger value="log">Activity log</TabsTrigger>
@@ -40,6 +44,7 @@ function SettingsPage() {
         <TabsContent value="site"><SiteTab initial={data} /></TabsContent>
         <TabsContent value="updates"><UpdatesTab initial={data} /></TabsContent>
         <TabsContent value="form"><FormTab initial={data} /></TabsContent>
+        <TabsContent value="fees"><FeeAmountsTab initial={data} /></TabsContent>
         <TabsContent value="account"><AccountTab /></TabsContent>
         <TabsContent value="data"><DataTab /></TabsContent>
         <TabsContent value="log"><LogTab /></TabsContent>
@@ -182,6 +187,37 @@ function FormTab({ initial }: { initial: SiteSettings }) {
   );
 }
 
+function FeeAmountsTab({ initial }: { initial: SiteSettings }) {
+  const save = useSave();
+  const [v, setV] = useState<Record<string, string>>(() =>
+    Object.fromEntries(FEE_TYPES.map((t) => [t, initial.fee_defaults?.[t] ? String(initial.fee_defaults[t]) : ""])),
+  );
+  function submit() {
+    const out: Partial<Record<FeeType, number>> = {};
+    for (const t of FEE_TYPES) {
+      const raw = v[t] ?? "";
+      if (!raw) continue;
+      const n = parseAmount(raw);
+      if (n === null) { toast.error(`${t}: enter a valid amount`); return; }
+      out[t] = n;
+    }
+    void save({ fee_defaults: out });
+  }
+  return (
+    <Section title="Standard fee amounts (₹)" description="These fill in the amount automatically when you record a payment. You can still change it per payment. Leave blank for no default.">
+      <div className="grid max-w-xl gap-4 sm:grid-cols-2">
+        {FEE_TYPES.map((t) => (
+          <div key={t}>
+            <Label htmlFor={`fee-${t}`}>{t === "Registration" ? "Joining (registration) fee" : t === "Annual" ? "Yearly membership fee" : t}</Label>
+            <Input id={`fee-${t}`} inputMode="numeric" className="mt-1.5" value={v[t] ?? ""} onChange={(e) => setV({ ...v, [t]: e.target.value.replace(/[^\d]/g, "") })} />
+          </div>
+        ))}
+      </div>
+      <Button className="mt-5" variant="navy" onClick={submit}><Save /> Save fee amounts</Button>
+    </Section>
+  );
+}
+
 function AccountTab() {
   const [cur, setCur] = useState("");
   const [next, setNext] = useState("");
@@ -242,7 +278,7 @@ function DataTab() {
     setBusy(true);
     try {
       await db.maintenance.restoreBackup(JSON.parse(await file.text()));
-      await invalidate(["members"], ["committee"], ["gallery"], qk.settings, ["file"]);
+      await invalidate(["members"], ["committee"], ["gallery"], qk.settings, ["file"], qk.fees);
       toast.success("Backup restored");
       navigate({ to: "/admin" });
     } catch (e) {
@@ -272,7 +308,7 @@ function DataTab() {
         </div>
         <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={(e) => void restore(e.target.files?.[0])} />
       </Section>
-      <Section title="Demo data" description="Remove the fake 'Demo Member' records and placeholder gallery photos.">
+      <Section title="Demo data" description="Remove the fake 'Demo Member' records, their demo fee payments and placeholder gallery photos.">
         <ConfirmDialog
           trigger={<Button variant="outline" className="text-destructive"><Database /> Remove demo data</Button>}
           title="Remove all demo data?"
@@ -280,7 +316,7 @@ function DataTab() {
           confirmLabel="Remove demo data"
           onConfirm={async () => {
             const n = await db.maintenance.clearDemoData();
-            await invalidate(["members"], ["committee"], ["gallery"]);
+            await invalidate(["members"], ["committee"], ["gallery"], qk.fees);
             toast.success(`Removed ${n} demo item(s)`);
           }}
         />
@@ -290,20 +326,45 @@ function DataTab() {
 }
 
 function LogTab() {
-  const { data, isLoading, refetch } = useQuery({ queryKey: qk.audit, queryFn: () => db.audit.list(200) });
+  const { data, isLoading, refetch } = useQuery({ queryKey: qk.audit, queryFn: () => db.audit.list(1000) });
   useEffect(() => { void refetch(); }, [refetch]);
+  const [q, setQ] = useState("");
+  const [kind, setKind] = useState("all");
+  const [range, setRange] = useState<RangeState>(ALL_TIME);
   if (isLoading) return <LoadingBlock />;
+  const r = resolveRange(range);
+  const kinds = [...new Set((data ?? []).map((l) => l.entity_type))].sort();
+  const shown = (data ?? []).filter((l) => {
+    if (kind !== "all" && l.entity_type !== kind) return false;
+    if (!inRange(l.created_at, r)) return false;
+    const t = q.trim().toLowerCase();
+    return !t || l.summary.toLowerCase().includes(t) || l.admin_email.toLowerCase().includes(t);
+  });
   return (
     <Section title="Activity log" description="Who changed what. ID numbers are never written to this log.">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="relative min-w-56 flex-1">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input className="pl-9" placeholder="Search activity…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search activity" />
+        </div>
+        <Select value={kind} onValueChange={setKind}>
+          <SelectTrigger className="w-44" aria-label="Activity type filter"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All areas</SelectItem>
+            {kinds.map((k) => <SelectItem key={k} value={k}>{k.replace(/_/g, " ")}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <DateRangeFilter value={range} onChange={setRange} label="When" />
+      </div>
       <ul className="divide-y text-sm">
-        {(data ?? []).map((l) => (
+        {shown.map((l) => (
           <li key={l.id} className="flex flex-col gap-0.5 py-2.5 sm:flex-row sm:items-center sm:gap-4">
             <span className="flex items-center gap-1.5 text-xs text-muted-foreground sm:w-44"><History className="size-3.5" />{new Date(l.created_at).toLocaleString("en-IN")}</span>
             <span className="flex-1">{l.summary}</span>
             <span className="text-xs text-muted-foreground">{l.admin_email}</span>
           </li>
         ))}
-        {(data ?? []).length === 0 && <li className="py-6 text-center text-muted-foreground">No activity yet.</li>}
+        {shown.length === 0 && <li className="py-6 text-center text-muted-foreground">No matching activity.</li>}
       </ul>
     </Section>
   );

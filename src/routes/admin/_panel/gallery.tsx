@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Upload, Pencil, Trash2, ArrowUp, ArrowDown, Eye, EyeOff, Images, Loader2 } from "lucide-react";
+import { Upload, Pencil, Trash2, ArrowUp, ArrowDown, Eye, EyeOff, Images, Loader2, Search } from "lucide-react";
 import { PageHeader, LoadingBlock, EmptyState } from "@/components/admin/common";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { ImageInput, commitImage, emptyImage, type ImageValue } from "@/components/admin/ImageInput";
@@ -33,6 +33,17 @@ function GalleryAdmin() {
   const [uploading, setUploading] = useState(0);
   const [draft, setDraft] = useState<Draft | null>(null);
   const items = data ?? [];
+  const [q, setQ] = useState("");
+  const [cat, setCat] = useState("all");
+  const [pub, setPub] = useState("all");
+  const filtersOn = !!q || cat !== "all" || pub !== "all";
+  const shown = items.filter((g) => {
+    if (cat !== "all" && g.category !== cat) return false;
+    if (pub === "published" && !g.is_published) return false;
+    if (pub === "draft" && g.is_published) return false;
+    const t = q.trim().toLowerCase();
+    return !t || g.title.toLowerCase().includes(t) || g.caption.toLowerCase().includes(t);
+  });
   const refresh = () => invalidate(qk.gallery, qk.publishedGallery);
 
   async function uploadMany(files: FileList | null) {
@@ -107,11 +118,39 @@ function GalleryAdmin() {
       />
       <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={(e) => void uploadMany(e.target.files)} />
 
+      {items.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border bg-card p-4 shadow-card">
+          <div className="relative min-w-56 flex-1">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input className="pl-9" placeholder="Search title or caption…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search photos" />
+          </div>
+          <Select value={cat} onValueChange={setCat}>
+            <SelectTrigger className="w-40" aria-label="Category filter"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All categories</SelectItem>
+              {GALLERY_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={pub} onValueChange={setPub}>
+            <SelectTrigger className="w-40" aria-label="Published filter"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Published & drafts</SelectItem>
+              <SelectItem value="published">Published only</SelectItem>
+              <SelectItem value="draft">Drafts only</SelectItem>
+            </SelectContent>
+          </Select>
+          {filtersOn && <Button variant="ghost" size="sm" onClick={() => { setQ(""); setCat("all"); setPub("all"); }}>Clear filters</Button>}
+          <span className="text-sm text-muted-foreground">{shown.length} of {items.length}</span>
+        </div>
+      )}
+
       {items.length === 0 ? (
         <EmptyState icon={<Images className="size-6" />} title="No photos yet" text="Upload association photos. Get consent before publishing photos of identifiable people." />
+      ) : shown.length === 0 ? (
+        <EmptyState icon={<Images className="size-6" />} title="No photos match" text="Try different filters." />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((g, i) => (
+          {shown.map((g) => { const i = items.indexOf(g); return (
             <div key={g.id} className="overflow-hidden rounded-2xl border bg-card shadow-card">
               <div className="relative">
                 <StorageImage bucket="public-media" path={g.image_path} alt={g.alt_text || g.title} className="aspect-[4/3] w-full" />
@@ -127,8 +166,8 @@ function GalleryAdmin() {
                     {g.is_published ? <><EyeOff /> Unpublish</> : <><Eye /> Publish</>}
                   </Button>
                   <Button size="icon" variant="ghost" onClick={() => setDraft({ ...g, image: emptyImage(g.image_path) })} aria-label="Edit"><Pencil /></Button>
-                  <Button size="icon" variant="ghost" disabled={i === 0} onClick={() => void move(g.id, -1)} aria-label="Move up"><ArrowUp /></Button>
-                  <Button size="icon" variant="ghost" disabled={i === items.length - 1} onClick={() => void move(g.id, 1)} aria-label="Move down"><ArrowDown /></Button>
+                  <Button size="icon" variant="ghost" disabled={filtersOn || i === 0} onClick={() => void move(g.id, -1)} aria-label="Move up"><ArrowUp /></Button>
+                  <Button size="icon" variant="ghost" disabled={filtersOn || i === items.length - 1} onClick={() => void move(g.id, 1)} aria-label="Move down"><ArrowDown /></Button>
                   <ConfirmDialog
                     trigger={<Button size="icon" variant="ghost" className="ml-auto text-destructive" aria-label="Delete"><Trash2 /></Button>}
                     title="Delete this photo?"
@@ -139,7 +178,7 @@ function GalleryAdmin() {
                 </div>
               </div>
             </div>
-          ))}
+          ); })}
         </div>
       )}
 

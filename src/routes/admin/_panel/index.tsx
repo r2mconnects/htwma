@@ -1,9 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Users, UserCheck, Archive, Award, UserPlus, FileSpreadsheet, Printer, ArrowRight, Info } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Users, UserCheck, Archive, Award, UserPlus, FileSpreadsheet, Printer, ArrowRight, Info, IndianRupee, BellRing, ReceiptIndianRupee } from "lucide-react";
+import { ALL_TIME, DateRangeFilter, resolveRange, type RangeState } from "@/components/admin/DateRangeFilter";
+import { formatINR, inRange, membersWithPendingAnnualFee, sumAmounts, totalsByType } from "@/lib/fees";
 import { PageHeader, StatusBadge, LoadingBlock } from "@/components/admin/common";
 import { StorageImage } from "@/components/StorageImage";
 import { Button } from "@/components/ui/button";
-import { useAssignments, useMembers } from "@/lib/data/hooks";
+import { useAssignments, useFees, useMembers } from "@/lib/data/hooks";
 import { db } from "@/lib/data";
 import { formatDate } from "@/lib/members";
 
@@ -16,7 +19,21 @@ function Dashboard() {
   const { session } = Route.useRouteContext();
   const members = useMembers();
   const assignments = useAssignments();
+  const fees = useFees();
+  const [range, setRange] = useState<RangeState>(ALL_TIME);
   const list = members.data ?? [];
+  const payments = fees.data ?? [];
+  const year = String(new Date().getFullYear());
+  const periodPayments = useMemo(() => {
+    const r = resolveRange(range);
+    return payments.filter((p) => inRange(p.paid_on, r));
+  }, [payments, range]);
+  const periodTotal = sumAmounts(periodPayments);
+  const allTotal = sumAmounts(payments);
+  const breakdown = totalsByType(periodPayments);
+  const pending = membersWithPendingAnnualFee(list.filter((m) => m.status === "active"), payments, year).length;
+  const recentPayments = periodPayments.slice(0, 5);
+  const byId = new Map(list.map((m) => [m.id, m]));
   const active = list.filter((m) => m.status === "active").length;
   const archived = list.filter((m) => m.status !== "active").length;
   const committee = (assignments.data ?? []).filter((a) => a.is_active).length;
@@ -68,6 +85,50 @@ function Dashboard() {
         </div>
       )}
 
+      <section className="mt-6 rounded-2xl border bg-card p-5 shadow-card">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="flex items-center gap-2 font-display text-lg font-bold text-navy"><IndianRupee className="size-5 text-primary" /> Fees collected</h2>
+          <DateRangeFilter value={range} onChange={setRange} label="Period" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="rounded-2xl bg-navy-gradient p-5 text-navy-foreground">
+            <p className="text-sm text-navy-foreground/80">Total amount {range.preset === "all" ? "(all time)" : "(selected period)"}</p>
+            <p className="mt-1 font-display text-4xl font-bold" data-testid="dashboard-fee-total">{formatINR(periodTotal)}</p>
+            <p className="mt-1 text-sm text-navy-foreground/80">{periodPayments.length} payment(s){range.preset !== "all" && ` · all time ${formatINR(allTotal)}`}</p>
+          </div>
+          <div className="rounded-2xl border p-4">
+            <p className="mb-2 text-sm font-medium text-muted-foreground">By fee type</p>
+            {breakdown.length === 0 ? <p className="text-sm text-muted-foreground">No payments in this period.</p> : (
+              <ul className="space-y-1.5 text-sm">
+                {breakdown.map((b) => (
+                  <li key={b.type} className="flex justify-between"><span>{b.type} <span className="text-muted-foreground">({b.count})</span></span><strong>{formatINR(b.total)}</strong></li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <Link to="/admin/fees" className="flex flex-col justify-between rounded-2xl border border-warning/40 bg-warning/5 p-4 transition hover:border-warning">
+            <p className="flex items-center gap-2 text-sm font-medium"><BellRing className="size-4 text-warning" /> Yearly fee {year} pending</p>
+            <p className="font-display text-3xl font-bold text-navy">{pending}</p>
+            <p className="text-xs text-muted-foreground">active members · open Fees to see the list</p>
+          </Link>
+        </div>
+        {recentPayments.length > 0 && (
+          <ul className="mt-4 divide-y border-t text-sm">
+            {recentPayments.map((p) => {
+              const m = byId.get(p.member_id);
+              return (
+                <li key={p.id} className="flex items-center gap-3 py-2">
+                  <ReceiptIndianRupee className="size-4 text-muted-foreground" />
+                  <span className="w-24 text-muted-foreground">{formatDate(p.paid_on)}</span>
+                  <span className="min-w-0 flex-1 truncate">{m ? `#${m.member_number} · ${m.full_name}` : "Deleted member"} — {p.fee_type}</span>
+                  <strong>{formatINR(p.amount)}</strong>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
       <div className="mt-6 grid gap-6 lg:grid-cols-[1.6fr_1fr]">
         <section className="rounded-2xl border bg-card p-5 shadow-card">
           <div className="mb-4 flex items-center justify-between">
@@ -98,6 +159,7 @@ function Dashboard() {
           <div className="grid gap-2">
             {[
               { to: "/admin/members/new", label: "Add a new member", icon: UserPlus },
+              { to: "/admin/fees", label: "Record a fee payment", icon: IndianRupee },
               { to: "/admin/import-export", label: "Import from Excel / CSV", icon: FileSpreadsheet },
               { to: "/admin/registration-form", label: "Print blank registration form", icon: Printer },
               { to: "/admin/committee", label: "Manage committee", icon: Award },

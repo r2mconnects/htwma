@@ -222,11 +222,11 @@ export function memberToExportRow(
   return row;
 }
 
-export async function downloadSheet(rows: Record<string, string>[], filename: string, format: "csv" | "xlsx") {
+export async function downloadSheet(rows: Record<string, string>[], filename: string, format: "csv" | "xlsx", sheetName = "Members") {
   const XLSX = await import("xlsx");
   const ws = XLSX.utils.json_to_sheet(rows);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Members");
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
   XLSX.writeFile(wb, `${filename}.${format}`, { bookType: format });
 }
 

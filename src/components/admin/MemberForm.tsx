@@ -13,7 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Section } from "./common";
 import { ImageInput, commitImage, emptyImage, type ImageValue } from "./ImageInput";
 import { db } from "@/lib/data";
-import type { ConfigurableField, MemberInput } from "@/lib/data/types";
+import { PAYMENT_MODES, type ConfigurableField, type FeeType, type MemberInput, type PaymentMode } from "@/lib/data/types";
+import { formatINR, isoDay, parseAmount } from "@/lib/fees";
 import {
   BLOOD_GROUPS,
   computeAge,
@@ -78,16 +79,26 @@ export function MemberForm({
   requiredFields,
   onSaved,
   onCancel,
+  feeDefaults = {},
 }: {
   initial: MemberInput;
   memberId: string | null;
   requiredFields: ConfigurableField[];
+  feeDefaults?: Partial<Record<FeeType, number>>;
   onSaved: (id: string) => void;
   onCancel: () => void;
 }) {
   const [photo, setPhoto] = useState<ImageValue>(emptyImage(initial.photo_path));
   const [signature, setSignature] = useState<ImageValue>(emptyImage(initial.signature_path));
   const [sameAddress, setSameAddress] = useState(false);
+  const year = String(new Date().getFullYear());
+  const [fee, setFee] = useState({
+    joining: false,
+    joiningAmount: String(feeDefaults.Registration ?? ""),
+    annual: false,
+    annualAmount: String(feeDefaults.Annual ?? ""),
+    mode: "Cash" as PaymentMode,
+  });
   const form = useForm<FormValues>({
     resolver: zodResolver(buildSchema(requiredFields)),
     defaultValues: {
@@ -121,6 +132,12 @@ export function MemberForm({
       toast.error("Member photo is required");
       return;
     }
+    const joiningAmount = fee.joining ? parseAmount(fee.joiningAmount) : 0;
+    const annualAmount = fee.annual ? parseAmount(fee.annualAmount) : 0;
+    if (!memberId && (joiningAmount === null || annualAmount === null)) {
+      toast.error("Enter a valid fee amount");
+      return;
+    }
     if (await db.members.isNumberTaken(v.member_number, memberId)) {
       setError("member_number", { message: "This Member ID is already used by another member" });
       return;
@@ -152,6 +169,12 @@ export function MemberForm({
         },
       };
       const saved = memberId ? await db.members.update(memberId, input) : await db.members.create(input);
+      if (!memberId) {
+        const paidOn = isoDay(new Date());
+        const base = { member_id: saved.id, payment_mode: fee.mode, paid_on: paidOn, receipt_number: "", notes: "Collected at registration" };
+        if (fee.joining && joiningAmount) await db.fees.create({ ...base, fee_type: "Registration", amount: joiningAmount, period: "" });
+        if (fee.annual && annualAmount) await db.fees.create({ ...base, fee_type: "Annual", amount: annualAmount, period: year });
+      }
       toast.success(memberId ? "Member updated" : "Member added");
       onSaved(saved.id);
     } catch (e) {
@@ -271,6 +294,32 @@ export function MemberForm({
           </label>
         </div>
       </Section>
+
+      {!memberId && (
+        <Section title="6. Fees collected now" description="Optional — tick what the member paid today. Each payment gets a receipt number.">
+          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_200px]">
+            <label className="flex items-center gap-3 rounded-xl border p-3 text-sm">
+              <Checkbox checked={fee.joining} onCheckedChange={(c) => setFee({ ...fee, joining: c === true })} aria-label="Joining fee paid" />
+              <span className="flex-1">Joining fee</span>
+              <Input aria-label="Joining fee amount" inputMode="numeric" className="h-9 w-24" value={fee.joiningAmount} onChange={(e) => setFee({ ...fee, joiningAmount: e.target.value.replace(/[^\d]/g, "") })} />
+            </label>
+            <label className="flex items-center gap-3 rounded-xl border p-3 text-sm">
+              <Checkbox checked={fee.annual} onCheckedChange={(c) => setFee({ ...fee, annual: c === true })} aria-label="Yearly fee paid" />
+              <span className="flex-1">Yearly fee {year}</span>
+              <Input aria-label="Yearly fee amount" inputMode="numeric" className="h-9 w-24" value={fee.annualAmount} onChange={(e) => setFee({ ...fee, annualAmount: e.target.value.replace(/[^\d]/g, "") })} />
+            </label>
+            <Select value={fee.mode} onValueChange={(v) => setFee({ ...fee, mode: v as PaymentMode })}>
+              <SelectTrigger className="h-auto min-h-12" aria-label="Payment mode"><SelectValue /></SelectTrigger>
+              <SelectContent>{PAYMENT_MODES.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          {(fee.joining || fee.annual) && (
+            <p className="mt-3 text-sm text-muted-foreground">
+              Total collected now: <strong className="text-foreground">{formatINR((fee.joining ? Number(fee.joiningAmount) || 0 : 0) + (fee.annual ? Number(fee.annualAmount) || 0 : 0))}</strong>
+            </p>
+          )}
+        </Section>
+      )}
 
       <div className="sticky bottom-0 -mx-4 flex justify-end gap-2 border-t bg-card/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-2xl sm:border">
         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>

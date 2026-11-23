@@ -13,6 +13,7 @@ import {
   Menu,
   ExternalLink,
   Printer,
+  IndianRupee,
 } from "lucide-react";
 import { db } from "@/lib/data";
 import { Logo } from "@/components/site/Logo";
@@ -24,6 +25,7 @@ const NAV = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/admin/members", label: "Members", icon: Users, exact: true },
   { to: "/admin/members/new", label: "Add Member", icon: UserPlus, exact: true },
+  { to: "/admin/fees", label: "Fees", icon: IndianRupee, exact: false },
   { to: "/admin/committee", label: "Committee", icon: Award, exact: false },
   { to: "/admin/gallery", label: "Gallery", icon: Images, exact: false },
   { to: "/admin/import-export", label: "Import / Export", icon: FileSpreadsheet, exact: false },

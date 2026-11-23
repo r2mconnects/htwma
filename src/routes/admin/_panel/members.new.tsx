@@ -27,9 +27,10 @@ function NewMember() {
         initial={initial}
         memberId={null}
         requiredFields={settings.data?.required_fields ?? []}
+        feeDefaults={settings.data?.fee_defaults ?? {}}
         onCancel={() => navigate({ to: "/admin/members" })}
         onSaved={async (id) => {
-          await invalidate(qk.members);
+          await invalidate(qk.members, qk.fees);
           navigate({ to: "/admin/members/$id", params: { id } });
         }}
       />
