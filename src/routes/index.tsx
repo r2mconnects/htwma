@@ -14,8 +14,8 @@ import {
   GraduationCap,
   CalendarDays,
 } from "lucide-react";
-import heroAsset from "@/assets/hero.png.asset.json";
-import lepakshi from "@/assets/lepakshi-nandi.jpg.asset.json";
+import heroAsset from "@/assets/htwma-hero.png";
+import lepakshi from "@/assets/lepakshi-nandi.jpg";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { Button } from "@/components/ui/button";
 import { StorageImage } from "@/components/StorageImage";
@@ -72,12 +72,12 @@ function HomePage() {
       {/* HERO */}
       <section className="relative overflow-hidden bg-hero">
         <div className="relative lg:hidden">
-          <img src={heroAsset.url} alt="A mechanic servicing a motorcycle in a workshop" className="h-64 w-full object-cover sm:h-80" />
+          <img src={heroAsset} alt="A mechanic servicing a motorcycle in a workshop" className="h-64 w-full object-cover sm:h-80" />
         </div>
         <div className="absolute inset-y-0 right-0 hidden w-[58%] lg:block">
           <div className="hero-curve absolute inset-0 -left-4 bg-primary" />
           <img
-            src={heroAsset.url}
+            src={heroAsset}
             alt="A mechanic servicing a motorcycle in a workshop"
             className="hero-curve absolute inset-0 h-full w-full object-cover"
           />
@@ -137,7 +137,7 @@ function HomePage() {
       {/* ABOUT + GALLERY PREVIEW */}
       <section className="mx-auto grid max-w-7xl gap-8 px-4 py-14 lg:grid-cols-[1fr_1.05fr_1.35fr] lg:items-center lg:px-8">
         <img
-          src={lepakshi.url}
+          src={lepakshi}
           alt="The Lepakshi Nandi near Hindupur"
           className="aspect-[4/3] w-full rounded-2xl object-cover shadow-card"
           loading="lazy"

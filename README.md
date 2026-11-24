@@ -38,11 +38,6 @@ Implement working functionality, not just static UI designs.
 
 First analyze both uploaded files, then build the complete project step by step. Follow the requirements document carefully and use the uploaded image as the main design reference.  i will use supabase add api key and links present write create dont use loveble cloud if posible use local store saparate file feture i will madifi to supabase backend and
 
-This project was built with [Lovable](https://lovable.dev).
-
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/1200b9ee-183c-4a8f-b1b1-85cf80833fe3).
 
 - **Ship faster**: describe what you want to build and Lovable handles the code.
 - **Stay in sync**: every change made in Lovable is committed straight to this repository.
@@ -50,9 +45,8 @@ Continue developing this project in the [Lovable editor](https://lovable.dev/pro
 
 ## Development
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
 
-```sh
+
 git clone <this-repository-url>
 cd <repository-name>
 npm i
