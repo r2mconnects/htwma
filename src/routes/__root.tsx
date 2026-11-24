@@ -83,10 +83,21 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "HTWMA – Hindupur Two Wheelers Mechanic & Owners Association" },
-      { name: "description", content: "Official website of the Hindupur Two Wheelers Mechanic & Owners Association (HTWMA)." },
+      {
+        name: "description",
+        content:
+          "Official website of the Hindupur Two Wheelers Mechanic & Owners Association (HTWMA).",
+      },
       { name: "author", content: "HTWMA" },
-      { property: "og:title", content: "HTWMA – Hindupur Two Wheelers Mechanic & Owners Association" },
-      { property: "og:description", content: "Official website of the Hindupur Two Wheelers Mechanic & Owners Association (HTWMA)." },
+      {
+        property: "og:title",
+        content: "HTWMA – Hindupur Two Wheelers Mechanic & Owners Association",
+      },
+      {
+        property: "og:description",
+        content:
+          "Official website of the Hindupur Two Wheelers Mechanic & Owners Association (HTWMA).",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],

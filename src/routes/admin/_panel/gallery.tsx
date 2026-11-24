@@ -1,216 +1,343 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useState } from "react";
+import { ArrowDown, ArrowUp, Edit, Eye, EyeOff, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { Upload, Pencil, Trash2, ArrowUp, ArrowDown, Eye, EyeOff, Images, Loader2, Search } from "lucide-react";
-import { PageHeader, LoadingBlock, EmptyState } from "@/components/admin/common";
-import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
-import { ImageInput, commitImage, emptyImage, type ImageValue } from "@/components/admin/ImageInput";
+import { db } from "@/lib/data";
+import { qk, useGallery, useInvalidate } from "@/lib/data/hooks";
+import { GALLERY_CATEGORIES, type GalleryCategory, type GalleryItem } from "@/lib/data/types";
+import { isoDay } from "@/lib/fees";
+import { PageHeader } from "@/components/admin/common";
+import {
+  ImageInput,
+  emptyImage,
+  finalizeStagedUploads,
+  rollbackStagedUploads,
+  stageImageUpload,
+  type ImageValue,
+  type StagedUpload,
+} from "@/components/admin/ImageInput";
 import { StorageImage } from "@/components/StorageImage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { db } from "@/lib/data";
-import { qk, useGallery, useInvalidate } from "@/lib/data/hooks";
-import { GALLERY_CATEGORIES, type GalleryCategory, type GalleryItem } from "@/lib/data/types";
-import { resizeImage, validateImageFile } from "@/lib/image";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/admin/_panel/gallery")({
-  head: () => ({ meta: [{ title: "Gallery – HTWMA Admin" }, { name: "robots", content: "noindex" }] }),
-  component: GalleryAdmin,
+  head: () => ({ meta: [{ title: "Gallery — HTWMA Admin" }] }),
+  component: AdminGalleryPage,
 });
 
-type Draft = Omit<GalleryItem, "image_path" | "created_at" | "is_demo"> & { image: ImageValue };
+interface EditorState {
+  id: string | null;
+  title: string;
+  caption: string;
+  alt_text: string;
+  credit: string;
+  category: GalleryCategory;
+  event_date: string;
+  is_published: boolean;
+  image: ImageValue;
+}
 
-function GalleryAdmin() {
-  const { data, isLoading } = useGallery();
+function AdminGalleryPage() {
+  const gallery = useGallery();
   const invalidate = useInvalidate();
-  const input = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(0);
-  const [draft, setDraft] = useState<Draft | null>(null);
-  const items = data ?? [];
-  const [q, setQ] = useState("");
-  const [cat, setCat] = useState("all");
-  const [pub, setPub] = useState("all");
-  const filtersOn = !!q || cat !== "all" || pub !== "all";
-  const shown = items.filter((g) => {
-    if (cat !== "all" && g.category !== cat) return false;
-    if (pub === "published" && !g.is_published) return false;
-    if (pub === "draft" && g.is_published) return false;
-    const t = q.trim().toLowerCase();
-    return !t || g.title.toLowerCase().includes(t) || g.caption.toLowerCase().includes(t);
-  });
-  const refresh = () => invalidate(qk.gallery, qk.publishedGallery);
+  const [editing, setEditing] = useState<EditorState | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  async function uploadMany(files: FileList | null) {
-    if (!files?.length) return;
-    const list = Array.from(files);
-    setUploading(list.length);
-    let ok = 0;
-    for (const [i, file] of list.entries()) {
-      const err = validateImageFile(file);
-      if (err) { toast.error(`${file.name}: ${err}`); continue; }
-      try {
-        const blob = await resizeImage(file, 1600, 0.82);
-        const path = await db.files.upload("public-media", blob, "photo.jpg");
-        const title = file.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").slice(0, 80);
-        await db.gallery.create({
-          image_path: path, title, caption: "", category: "Office", event_date: null, alt_text: title,
-          credit: "", is_published: false, display_order: items.length + i + 1,
-        });
-        ok++;
-      } catch (e) {
-        toast.error(`${file.name}: ${e instanceof Error ? e.message : "upload failed"}`);
-      }
-    }
-    setUploading(0);
-    if (input.current) input.current.value = "";
-    await refresh();
-    if (ok) toast.success(`${ok} photo(s) uploaded as unpublished. Add details, then publish.`);
+  const items = gallery.data ?? [];
+
+  function openNew() {
+    setEditing({
+      id: null,
+      title: "",
+      caption: "",
+      alt_text: "",
+      credit: "",
+      category: "Events",
+      event_date: isoDay(new Date()),
+      is_published: true,
+      image: emptyImage(),
+    });
   }
 
-  async function move(id: string, dir: -1 | 1) {
-    const ids = items.map((g) => g.id);
-    const i = ids.indexOf(id);
-    const j = i + dir;
-    if (j < 0 || j >= ids.length) return;
-    [ids[i], ids[j]] = [ids[j]!, ids[i]!];
-    await db.gallery.reorder(ids);
-    await refresh();
+  function openEdit(g: GalleryItem) {
+    setEditing({
+      id: g.id,
+      title: g.title,
+      caption: g.caption,
+      alt_text: g.alt_text,
+      credit: g.credit,
+      category: g.category,
+      event_date: g.event_date ?? "",
+      is_published: g.is_published,
+      image: emptyImage(g.image_path),
+    });
+  }
+
+  async function save() {
+    if (!editing) return;
+    if (!editing.title.trim()) {
+      toast.error("Please enter a title");
+      return;
+    }
+    if (!editing.image.file && (!editing.image.path || editing.image.removed)) {
+      toast.error("Please choose an image");
+      return;
+    }
+    setSaving(true);
+    const staged: StagedUpload[] = [];
+    try {
+      const stagedImg = await stageImageUpload(
+        editing.image,
+        "public-media",
+        db.files.upload,
+        "gallery.jpg",
+      );
+      staged.push(stagedImg);
+      const path = stagedImg.nextPath!;
+      const cleanTitle = editing.title.trim();
+      const payload = {
+        title: cleanTitle,
+        caption: editing.caption.trim(),
+        alt_text: editing.alt_text.trim() || cleanTitle,
+        credit: editing.credit.trim(),
+        category: editing.category,
+        event_date: editing.event_date || null,
+        is_published: editing.is_published,
+        image_path: path,
+      };
+      if (editing.id) {
+        await db.gallery.update(editing.id, payload);
+      } else {
+        await db.gallery.create({
+          ...payload,
+          display_order: items.length + 1,
+        });
+      }
+      await finalizeStagedUploads(staged, db.files.remove);
+      await invalidate(qk.gallery, qk.publishedGallery, qk.audit);
+      toast.success(editing.id ? "Photo updated" : "Photo uploaded");
+      setEditing(null);
+    } catch (e) {
+      await rollbackStagedUploads(staged, db.files.remove);
+      toast.error(e instanceof Error ? e.message : "Could not save photo");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function togglePublish(g: GalleryItem) {
     await db.gallery.update(g.id, { is_published: !g.is_published });
-    await refresh();
-    toast.success(g.is_published ? "Unpublished" : "Published on website");
+    await invalidate(qk.gallery, qk.publishedGallery, qk.audit);
+    toast.success(g.is_published ? "Hidden from website" : "Published");
   }
 
-  async function saveDraft() {
-    if (!draft) return;
-    if (!draft.title.trim()) { toast.error("Add a title"); return; }
-    const original = items.find((g) => g.id === draft.id);
-    const image_path = draft.image.file
-      ? await commitImage(draft.image, "public-media", db.files.upload, db.files.remove)
-      : original?.image_path ?? "";
-    const { image: _image, id, ...rest } = draft;
-    await db.gallery.update(id, { ...rest, title: rest.title.trim(), image_path: image_path ?? "" });
-    await refresh();
-    setDraft(null);
-    toast.success("Photo saved");
+  async function move(idx: number, dir: -1 | 1) {
+    const next = [...items];
+    const target = idx + dir;
+    if (!next[target]) return;
+    [next[idx], next[target]] = [next[target]!, next[idx]!];
+    await db.gallery.reorder(next.map((x) => x.id));
+    await invalidate(qk.gallery, qk.publishedGallery);
   }
 
-  if (isLoading) return <LoadingBlock />;
+  async function remove(g: GalleryItem) {
+    if (!confirm(`Delete "${g.title}" permanently?`)) return;
+    await db.gallery.remove(g.id);
+    await invalidate(qk.gallery, qk.publishedGallery, qk.audit);
+    toast.success("Photo deleted");
+  }
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="space-y-6">
       <PageHeader
         title="Gallery"
-        description="Upload office, meeting and event photos. Only published photos appear on the website."
+        subtitle="Upload association event, meeting and workshop photos."
         actions={
-          <Button variant="navy" onClick={() => input.current?.click()} disabled={uploading > 0}>
-            {uploading ? <Loader2 className="animate-spin" /> : <Upload />} {uploading ? `Uploading ${uploading}…` : "Upload photos"}
+          <Button variant="navy" onClick={openNew}>
+            <Plus /> Upload Photo
           </Button>
         }
       />
-      <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={(e) => void uploadMany(e.target.files)} />
-
-      {items.length > 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border bg-card p-4 shadow-card">
-          <div className="relative min-w-56 flex-1">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input className="pl-9" placeholder="Search title or caption…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search photos" />
-          </div>
-          <Select value={cat} onValueChange={setCat}>
-            <SelectTrigger className="w-40" aria-label="Category filter"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All categories</SelectItem>
-              {GALLERY_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={pub} onValueChange={setPub}>
-            <SelectTrigger className="w-40" aria-label="Published filter"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Published & drafts</SelectItem>
-              <SelectItem value="published">Published only</SelectItem>
-              <SelectItem value="draft">Drafts only</SelectItem>
-            </SelectContent>
-          </Select>
-          {filtersOn && <Button variant="ghost" size="sm" onClick={() => { setQ(""); setCat("all"); setPub("all"); }}>Clear filters</Button>}
-          <span className="text-sm text-muted-foreground">{shown.length} of {items.length}</span>
-        </div>
-      )}
 
       {items.length === 0 ? (
-        <EmptyState icon={<Images className="size-6" />} title="No photos yet" text="Upload association photos. Get consent before publishing photos of identifiable people." />
-      ) : shown.length === 0 ? (
-        <EmptyState icon={<Images className="size-6" />} title="No photos match" text="Try different filters." />
+        <div className="rounded-2xl border bg-card p-12 text-center">
+          <p className="font-medium">No photos yet.</p>
+          <Button variant="navy" className="mt-4" onClick={openNew}>
+            <Plus /> Upload first photo
+          </Button>
+        </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {shown.map((g) => { const i = items.indexOf(g); return (
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {items.map((g, idx) => (
             <div key={g.id} className="overflow-hidden rounded-2xl border bg-card shadow-card">
               <div className="relative">
-                <StorageImage bucket="public-media" path={g.image_path} alt={g.alt_text || g.title} className="aspect-[4/3] w-full" />
-                <Badge className={`absolute left-2 top-2 ${g.is_published ? "bg-success text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-                  {g.is_published ? "Published" : "Draft"}
-                </Badge>
+                <StorageImage
+                  bucket="public-media"
+                  path={g.image_path}
+                  alt={g.alt_text || g.title}
+                  className="aspect-[16/10] w-full"
+                />
+                {!g.is_published && (
+                  <span className="absolute left-3 top-3 rounded-full bg-foreground/80 px-2.5 py-0.5 text-xs font-semibold text-background">
+                    Hidden
+                  </span>
+                )}
               </div>
               <div className="p-4">
-                <p className="truncate font-medium text-navy">{g.title}</p>
-                <p className="text-xs text-muted-foreground">{g.category}{g.event_date ? ` · ${g.event_date}` : ""}</p>
-                <div className="mt-3 flex flex-wrap gap-1">
-                  <Button size="sm" variant="outline" onClick={() => void togglePublish(g)}>
-                    {g.is_published ? <><EyeOff /> Unpublish</> : <><Eye /> Publish</>}
+                <span className="text-xs font-semibold text-brand">{g.category}</span>
+                <h2 className="mt-0.5 font-display text-base font-bold text-navy">{g.title}</h2>
+                {g.caption && (
+                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{g.caption}</p>
+                )}
+                <div className="mt-4 flex flex-wrap items-center gap-1 border-t pt-3">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    disabled={idx === 0}
+                    onClick={() => void move(idx, -1)}
+                    aria-label="Move earlier"
+                  >
+                    <ArrowUp />
                   </Button>
-                  <Button size="icon" variant="ghost" onClick={() => setDraft({ ...g, image: emptyImage(g.image_path) })} aria-label="Edit"><Pencil /></Button>
-                  <Button size="icon" variant="ghost" disabled={filtersOn || i === 0} onClick={() => void move(g.id, -1)} aria-label="Move up"><ArrowUp /></Button>
-                  <Button size="icon" variant="ghost" disabled={filtersOn || i === items.length - 1} onClick={() => void move(g.id, 1)} aria-label="Move down"><ArrowDown /></Button>
-                  <ConfirmDialog
-                    trigger={<Button size="icon" variant="ghost" className="ml-auto text-destructive" aria-label="Delete"><Trash2 /></Button>}
-                    title="Delete this photo?"
-                    description={<p>"{g.title}" will be removed permanently.</p>}
-                    confirmLabel="Delete"
-                    onConfirm={async () => { await db.gallery.remove(g.id); await refresh(); toast.success("Photo deleted"); }}
-                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    disabled={idx === items.length - 1}
+                    onClick={() => void move(idx, 1)}
+                    aria-label="Move later"
+                  >
+                    <ArrowDown />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => void togglePublish(g)}
+                    aria-label={g.is_published ? "Hide" : "Publish"}
+                  >
+                    {g.is_published ? <EyeOff /> : <Eye />}
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => openEdit(g)} aria-label="Edit">
+                    <Edit />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="ml-auto text-destructive"
+                    onClick={() => void remove(g)}
+                    aria-label="Delete"
+                  >
+                    <Trash2 />
+                  </Button>
                 </div>
               </div>
             </div>
-          ); })}
+          ))}
         </div>
       )}
 
-      <Dialog open={!!draft} onOpenChange={(o) => !o && setDraft(null)}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-          <DialogHeader><DialogTitle>Edit photo</DialogTitle></DialogHeader>
-          {draft && (
+      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editing?.id ? "Edit photo" : "Upload photo"}</DialogTitle>
+            <DialogDescription>
+              Gallery photos are stored in public-media and resized automatically on upload.
+            </DialogDescription>
+          </DialogHeader>
+          {editing && (
             <div className="space-y-4">
-              <ImageInput label="Image" bucket="public-media" value={draft.image} onChange={(v) => setDraft({ ...draft, image: v.removed ? emptyImage(draft.image.path) : v })} aspect="wide" maxSize={1600} hint="Replace the image if needed." />
-              <div><Label htmlFor="gt">Title</Label><Input id="gt" className="mt-1.5" maxLength={100} value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></div>
-              <div><Label htmlFor="gc">Caption</Label><Textarea id="gc" className="mt-1.5" maxLength={300} value={draft.caption} onChange={(e) => setDraft({ ...draft, caption: e.target.value })} /></div>
-              <div className="grid grid-cols-2 gap-3">
+              <ImageInput
+                label="Photo"
+                bucket="public-media"
+                aspect="wide"
+                maxSize={1600}
+                value={editing.image}
+                onChange={(image) => setEditing({ ...editing, image })}
+              />
+              <div>
+                <Label htmlFor="g-title">Title *</Label>
+                <Input
+                  id="g-title"
+                  className="mt-1.5"
+                  value={editing.title}
+                  onChange={(e) => setEditing({ ...editing, title: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <Label>Category</Label>
-                  <Select value={draft.category} onValueChange={(v) => setDraft({ ...draft, category: v as GalleryCategory })}>
-                    <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-                    <SelectContent>{GALLERY_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  <Select
+                    value={editing.category}
+                    onValueChange={(v) =>
+                      setEditing({ ...editing, category: v as GalleryCategory })
+                    }
+                  >
+                    <SelectTrigger className="mt-1.5">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {GALLERY_CATEGORIES.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
                   </Select>
                 </div>
-                <div><Label htmlFor="gd">Event date</Label><Input id="gd" type="date" className="mt-1.5" value={draft.event_date ?? ""} onChange={(e) => setDraft({ ...draft, event_date: e.target.value || null })} /></div>
+                <div>
+                  <Label htmlFor="g-date">Event date</Label>
+                  <Input
+                    id="g-date"
+                    type="date"
+                    className="mt-1.5"
+                    value={editing.event_date}
+                    onChange={(e) => setEditing({ ...editing, event_date: e.target.value })}
+                  />
+                </div>
               </div>
-              <div><Label htmlFor="ga">Alt text (describes the photo for screen readers)</Label><Input id="ga" className="mt-1.5" maxLength={160} value={draft.alt_text} onChange={(e) => setDraft({ ...draft, alt_text: e.target.value })} /></div>
-              <div><Label htmlFor="gr">Photo credit / source</Label><Input id="gr" className="mt-1.5" maxLength={120} value={draft.credit} onChange={(e) => setDraft({ ...draft, credit: e.target.value })} /></div>
-              <label className="flex items-center justify-between rounded-xl border p-3 text-sm">
-                Published on website
-                <Switch checked={draft.is_published} onCheckedChange={(c) => setDraft({ ...draft, is_published: c })} />
+              <div>
+                <Label htmlFor="g-desc">Caption / description (optional)</Label>
+                <Textarea
+                  id="g-desc"
+                  rows={3}
+                  className="mt-1.5"
+                  value={editing.caption}
+                  onChange={(e) => setEditing({ ...editing, caption: e.target.value })}
+                />
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={editing.is_published}
+                  onCheckedChange={(c) => setEditing({ ...editing, is_published: c === true })}
+                />
+                Show on public Gallery page
               </label>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDraft(null)}>Cancel</Button>
-            <Button variant="navy" onClick={() => void saveDraft()}>Save</Button>
+            <Button variant="outline" onClick={() => setEditing(null)}>
+              Cancel
+            </Button>
+            <Button variant="navy" onClick={() => void save()} disabled={saving}>
+              Save
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

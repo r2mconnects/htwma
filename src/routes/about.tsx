@@ -1,18 +1,26 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Target, Eye, History, CheckCircle2, ArrowRight } from "lucide-react";
-import lepakshi from "@/assets/lepakshi-nandi.jpg.asset.json";
+import { Target, Eye, History, CheckCircle2, ArrowRight, CalendarDays } from "lucide-react";
+import lepakshi from "@/assets/lepakshi-nandi.jpg";
 import { SiteLayout, PageBanner } from "@/components/site/SiteLayout";
 import { Button } from "@/components/ui/button";
-import { useSettings } from "@/lib/data/hooks";
+import { usePublishedAnnouncements, useSettings } from "@/lib/data/hooks";
 import { DEFAULT_SETTINGS } from "@/lib/data/defaults";
+import { formatDate } from "@/lib/members";
 
 export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
       { title: "About HTWMA – Hindupur Two Wheelers Mechanic & Owners Association" },
-      { name: "description", content: "Mission, vision and activities of the Hindupur Two Wheelers Mechanic & Owners Association." },
+      {
+        name: "description",
+        content:
+          "Mission, vision and activities of the Hindupur Two Wheelers Mechanic & Owners Association.",
+      },
       { property: "og:title", content: "About HTWMA" },
-      { property: "og:description", content: "Who we are and what the Hindupur two-wheeler mechanics association does." },
+      {
+        property: "og:description",
+        content: "Who we are and what the Hindupur two-wheeler mechanics association does.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -23,7 +31,11 @@ export const Route = createFileRoute("/about")({
 function AboutPage() {
   const { data } = useSettings();
   const s = data ?? DEFAULT_SETTINGS;
-  const activities = s.activities.split("\n").map((a) => a.trim()).filter(Boolean);
+  const announcements = usePublishedAnnouncements();
+  const activities = s.activities
+    .split("\n")
+    .map((a) => a.trim())
+    .filter(Boolean);
 
   return (
     <SiteLayout>
@@ -37,7 +49,11 @@ function AboutPage() {
           <p className="mt-4 leading-relaxed text-foreground/80">{s.home_intro}</p>
         </div>
         <figure>
-          <img src={lepakshi.url} alt="The Lepakshi Nandi near Hindupur" className="aspect-[4/3] w-full rounded-3xl object-cover shadow-float" />
+          <img
+            src={lepakshi}
+            alt="The Lepakshi Nandi near Hindupur"
+            className="aspect-[4/3] w-full rounded-3xl object-cover shadow-float"
+          />
           <figcaption className="mt-2 text-xs text-muted-foreground">
             Lepakshi Nandi near Hindupur. Photo: Wikimedia Commons, CC BY-SA 3.0.
           </figcaption>
@@ -73,6 +89,37 @@ function AboutPage() {
             </li>
           ))}
         </ul>
+
+        {(announcements.data ?? []).length > 0 && (
+          <div className="mt-16">
+            <h2 className="font-display text-3xl font-bold text-navy">
+              Notices &amp; Announcements
+            </h2>
+            <div className="swoosh mt-3 w-28" />
+            <div className="mt-8 grid gap-5 md:grid-cols-2">
+              {(announcements.data ?? []).map((u) => (
+                <article
+                  key={u.id}
+                  className="rounded-2xl border-l-4 border-primary bg-card p-6 shadow-card"
+                >
+                  <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1.5">
+                      <CalendarDays className="size-3.5" /> {formatDate(u.published_date)}
+                    </span>
+                    <span className="rounded-full bg-secondary px-2.5 py-0.5 font-semibold text-navy">
+                      {u.category}
+                    </span>
+                  </div>
+                  <h3 className="mt-2 font-display text-lg font-bold text-navy">{u.title}</h3>
+                  <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-foreground/80">
+                    {u.body}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </div>
+        )}
+
         <Button asChild variant="navy" size="lg" className="mt-10 px-6">
           <Link to="/committee">
             Meet the committee <ArrowRight />

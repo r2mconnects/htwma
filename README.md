@@ -1,54 +1,51 @@
 # HTWMA Member Hub
 
-see img i want that interface for home page Build a complete, professional, mobile-responsive website for HTWMA – Hindupur Two Wheelers Mechanic & Owners Association.
+Official public website and administrator portal for **The Hindupur Two Wheelers Mechanic & Owners Association (HTWMA)**, Hindupur, Sri Sathya Sai District, Andhra Pradesh.
 
-Carefully read the uploaded project requirements document and follow it as the main specification. Use the uploaded homepage design image as the visual reference. Match its layout, colors, branding, typography, and overall appearance as closely as possible.
+## Architecture
 
-Build the complete website with:
+- **Frontend**: TanStack Start + React 19 + TypeScript (strict) + Tailwind CSS v4 + shadcn/ui
+- **Backend & Database**: Supabase PostgreSQL (`szxfrbrppkofeoojzewq`) with Row Level Security (`FORCE ROW LEVEL SECURITY`) on every table
+- **Authentication**: Supabase Auth (`public.admin_users` linked to `auth.users` with public sign-ups disabled)
+- **Storage**: Supabase Storage with 3 private admin-only buckets (`member-photos`, `member-documents`, `member-signatures`) and 1 public media bucket (`public-media`)
 
-Public pages: Home, About, Committee, Gallery, and Contact.
+## Database Schema (`supabase/migrations/`)
 
-A secure, admin-only dashboard to manage approximately 200 association members.
+1. `admin_users` — Authorised association administrators linked to `auth.users` (`admin` / `super_admin` roles, active status, last login).
+2. `member_sequences` — Atomic concurrency-safe counters (`SELECT ... FOR UPDATE`) for sequential membership numbers and fee receipt numbers.
+3. `members` — Association member profiles, membership/registration numbers, garage details, DOB, blood group, nominee name/age, WhatsApp/mobile, emergency contact, workshop/residence addresses, masked ID last-4 digits, and status (`active` / `inactive` / `archived`).
+4. `member_documents` — Restricted 1:1 table storing full Aadhaar, PAN, and Driving Licence numbers plus private document scan paths (`member-documents` bucket). Never accessible publicly.
+5. `committee_roles` & `committee_members` — Office-bearer titles (President, Vice President, General Secretary, Secretary, Treasurer, Executive Committee Members) and term assignments with single-holder triggers and opt-in public phone projection (`get_public_committee()`).
+6. `gallery` — Event, meeting, workshop, and community photos stored in `public-media`.
+7. `announcements` — Official notices, meeting circulars, and welfare updates published on the Home and About pages.
+8. `contact_messages` — Public visitor enquiries submitted from the Contact page (`submit_contact_message` RPC) and managed in the admin inbox.
+9. `site_settings` — Singleton association identity, logo, address, phone/WhatsApp/email, social links, public copy, required form fields, and default fee amounts.
+10. `member_fees` — Membership fee payments and printable receipts.
+11. `activity_logs` — Tamper-resistant audit trail of administrator sign-ins, member mutations, sensitive ID/document views, and data exports.
 
-Add, edit, view, search, archive, and manage member records.
+See [`docs/supabase/SETUP.md`](docs/supabase/SETUP.md) and [`docs/supabase/schema.sql`](docs/supabase/schema.sql) for full database and RLS details.
 
-Member photo uploads and printable registration forms.
+## Local Development
 
-Committee member management and gallery management.
+1. Copy `.env.example` to `.env` and set your public Supabase URL and publishable/anon key:
 
-Excel/CSV import and export.
+   ```bash
+   cp .env.example .env
+   ```
 
-Secure database, authentication, and private storage.
+   _(Never place a Supabase `service_role` or `sb_secret_*` key in `.env` or frontend code.)_
 
-Recommended technology: Next.js, React, TypeScript, Tailwind CSS, and Supabase.
+2. Install dependencies and start the development server:
 
-Important:
+   ```bash
+   npm install
+   npm run dev
+   ```
 
-Do not create member login or public registration unless specified in the document.
-
-Keep Aadhaar, PAN, and Driving Licence details private and protected.
-
-Make the admin panel easy to use on mobile and desktop.
-
-Use reusable components and clean project architecture.
-
-Do not use fake contact details or real member data. Use clearly marked placeholders.
-
-Implement working functionality, not just static UI designs.
-
-First analyze both uploaded files, then build the complete project step by step. Follow the requirements document carefully and use the uploaded image as the main design reference.  i will use supabase add api key and links present write create dont use loveble cloud if posible use local store saparate file feture i will madifi to supabase backend and
-
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-
-
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
-```
+3. Quality checks:
+   ```bash
+   npm run typecheck
+   npm run lint
+   npm test
+   npm run build
+   ```

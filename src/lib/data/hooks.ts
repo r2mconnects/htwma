@@ -12,8 +12,12 @@ export const qk = {
   publicCommittee: ["committee", "public"] as const,
   gallery: ["gallery", "all"] as const,
   publishedGallery: ["gallery", "published"] as const,
+  announcements: ["announcements", "all"] as const,
+  publishedAnnouncements: ["announcements", "published"] as const,
+  messages: ["contact_messages"] as const,
   audit: ["audit"] as const,
   fees: ["fees"] as const,
+  admins: ["admins"] as const,
   file: (bucket: string, path: string) => ["file", bucket, path] as const,
 };
 
@@ -51,6 +55,21 @@ export function useGallery() {
 
 export function usePublishedGallery() {
   return useQuery({ queryKey: qk.publishedGallery, queryFn: () => db.gallery.listPublished() });
+}
+
+export function useAnnouncements() {
+  return useQuery({ queryKey: qk.announcements, queryFn: () => db.announcements.list() });
+}
+
+export function usePublishedAnnouncements() {
+  return useQuery({
+    queryKey: qk.publishedAnnouncements,
+    queryFn: () => db.announcements.listPublished(),
+  });
+}
+
+export function useContactMessages() {
+  return useQuery({ queryKey: qk.messages, queryFn: () => db.messages.list() });
 }
 
 export function useFileUrl(bucket: StorageBucket, path: string | null | undefined) {

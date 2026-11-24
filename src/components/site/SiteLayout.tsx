@@ -18,7 +18,10 @@ export function PageBanner({ title, subtitle }: { title: string; subtitle: strin
   return (
     <section className="relative overflow-hidden bg-navy-gradient text-navy-foreground">
       <div className="mx-auto max-w-7xl px-4 py-14 sm:py-20 lg:px-8">
-        <nav className="mb-4 flex items-center gap-1 text-sm text-navy-foreground/75" aria-label="Breadcrumb">
+        <nav
+          className="mb-4 flex items-center gap-1 text-sm text-navy-foreground/75"
+          aria-label="Breadcrumb"
+        >
           <Link to="/" className="hover:text-gold">
             Home
           </Link>

@@ -14,11 +14,15 @@ export function SiteFooter() {
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 md:grid-cols-[1.4fr_1fr_1.3fr] lg:px-8">
         <div className="space-y-4">
           <Logo tone="light" />
-          <p className="max-w-sm text-sm leading-relaxed text-navy-foreground/80">{s.association_name}</p>
+          <p className="max-w-sm text-sm leading-relaxed text-navy-foreground/80">
+            {s.association_name}
+          </p>
           <SocialIcons links={{ facebook: s.facebook_url, youtube: s.youtube_url, x: s.x_url }} />
         </div>
         <div>
-          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gold">Quick links</h3>
+          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gold">
+            Quick links
+          </h3>
           <ul className="space-y-2 text-sm">
             {NAV_ITEMS.map((n) => (
               <li key={n.to}>
@@ -54,10 +58,16 @@ export function SiteFooter() {
       </div>
       <div className="border-t border-navy-foreground/15">
         <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-5 text-xs text-navy-foreground/70 sm:flex-row sm:items-center sm:justify-between lg:px-8">
-          <p>© {new Date().getFullYear()} {s.short_name}. All rights reserved.</p>
+          <p>
+            © {new Date().getFullYear()} {s.short_name}. All rights reserved.
+          </p>
           <p className="flex items-center gap-1.5">
-            <ShieldCheck className="size-3.5" /> Member records are private and managed only by authorised administrators.
-            <Link to="/admin/login" className="ml-2 underline-offset-2 hover:text-gold hover:underline">
+            <ShieldCheck className="size-3.5" /> Member records are private and managed only by
+            authorised administrators.
+            <Link
+              to="/admin/login"
+              className="ml-2 underline-offset-2 hover:text-gold hover:underline"
+            >
               Admin
             </Link>
           </p>

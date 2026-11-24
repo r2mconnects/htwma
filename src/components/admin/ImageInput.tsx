@@ -15,7 +15,11 @@ export interface ImageValue {
   removed: boolean;
 }
 
-export const emptyImage = (path: string | null = null): ImageValue => ({ path, file: null, removed: false });
+export const emptyImage = (path: string | null = null): ImageValue => ({
+  path,
+  file: null,
+  removed: false,
+});
 
 /** Image picker with preview, replacement, removal and validation. */
 export function ImageInput({
@@ -81,43 +85,124 @@ export function ImageInput({
           ) : value.path && !value.removed ? (
             <StorageImage bucket={bucket} path={value.path} alt={label} className="h-full w-full" />
           ) : (
-            <button type="button" onClick={() => ref.current?.click()} className="grid h-full w-full place-items-center text-muted-foreground hover:text-primary">
+            <button
+              type="button"
+              onClick={() => ref.current?.click()}
+              className="grid h-full w-full place-items-center text-muted-foreground hover:text-primary"
+            >
               <ImagePlus className="size-8" />
             </button>
           )}
         </div>
         <div className="flex flex-col gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={() => ref.current?.click()} disabled={busy}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => ref.current?.click()}
+            disabled={busy}
+          >
             {hasImage ? <RefreshCw /> : <ImagePlus />} {hasImage ? "Replace" : "Upload"}
           </Button>
           {hasImage && (
-            <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={() => onChange({ ...value, file: null, removed: true })}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-destructive"
+              onClick={() => onChange({ ...value, file: null, removed: true })}
+            >
               <Trash2 /> Remove
             </Button>
           )}
         </div>
       </div>
-      <p className="mt-1.5 text-xs text-muted-foreground">{hint ?? "JPG, PNG or WebP, up to 8 MB."}</p>
-      <input ref={ref} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => void pick(e.target.files?.[0])} />
+      <p className="mt-1.5 text-xs text-muted-foreground">
+        {hint ?? "JPG, PNG or WebP, up to 8 MB."}
+      </p>
+      <input
+        ref={ref}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={(e) => void pick(e.target.files?.[0])}
+      />
     </div>
   );
 }
 
-/** Uploads/removes as needed and returns the final stored path. */
+export interface StagedUpload {
+  bucket: StorageBucket;
+  nextPath: string | null;
+  uploadedNewPath: string | null;
+  obsoleteOldPath: string | null;
+}
+
+/**
+ * Stages a storage upload BEFORE database commit so old files are only removed
+ * after the database transaction succeeds (and new uploads roll back on DB failure).
+ */
+export async function stageImageUpload(
+  value: ImageValue,
+  bucket: StorageBucket,
+  upload: (b: StorageBucket, f: Blob, n: string) => Promise<string>,
+  filename = "image.jpg",
+): Promise<StagedUpload> {
+  if (value.file) {
+    const uploadedNewPath = await upload(bucket, value.file, filename);
+    return {
+      bucket,
+      nextPath: uploadedNewPath,
+      uploadedNewPath,
+      obsoleteOldPath: value.path,
+    };
+  }
+  if (value.removed) {
+    return {
+      bucket,
+      nextPath: null,
+      uploadedNewPath: null,
+      obsoleteOldPath: value.path,
+    };
+  }
+  return {
+    bucket,
+    nextPath: value.path,
+    uploadedNewPath: null,
+    obsoleteOldPath: null,
+  };
+}
+
+export async function finalizeStagedUploads(
+  staged: StagedUpload[],
+  remove: (b: StorageBucket, p: string) => Promise<void>,
+): Promise<void> {
+  await Promise.all(
+    staged
+      .filter((s) => s.obsoleteOldPath)
+      .map((s) => remove(s.bucket, s.obsoleteOldPath!).catch(() => undefined)),
+  );
+}
+
+export async function rollbackStagedUploads(
+  staged: StagedUpload[],
+  remove: (b: StorageBucket, p: string) => Promise<void>,
+): Promise<void> {
+  await Promise.all(
+    staged
+      .filter((s) => s.uploadedNewPath)
+      .map((s) => remove(s.bucket, s.uploadedNewPath!).catch(() => undefined)),
+  );
+}
+
+/** Convenience helper for single-step image save. */
 export async function commitImage(
   value: ImageValue,
   bucket: StorageBucket,
   upload: (b: StorageBucket, f: Blob, n: string) => Promise<string>,
   remove: (b: StorageBucket, p: string) => Promise<void>,
 ): Promise<string | null> {
-  if (value.file) {
-    const path = await upload(bucket, value.file, "image.jpg");
-    if (value.path) await remove(bucket, value.path).catch(() => undefined);
-    return path;
-  }
-  if (value.removed) {
-    if (value.path) await remove(bucket, value.path).catch(() => undefined);
-    return null;
-  }
-  return value.path;
+  const staged = await stageImageUpload(value, bucket, upload);
+  await finalizeStagedUploads([staged], remove);
+  return staged.nextPath;
 }

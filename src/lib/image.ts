@@ -1,9 +1,18 @@
 export const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+export const ALLOWED_DOCUMENT_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 
 export function validateImageFile(file: File): string | null {
   if (!ALLOWED_IMAGE_TYPES.includes(file.type)) return "Please choose a JPG, PNG or WebP image.";
   if (file.size > MAX_IMAGE_BYTES) return "Image is too large. Maximum size is 8 MB.";
+  return null;
+}
+
+export function validateDocumentFile(file: File): string | null {
+  if (!ALLOWED_DOCUMENT_TYPES.includes(file.type))
+    return "Please choose a PDF, JPG, PNG or WebP file.";
+  if (file.size > MAX_DOCUMENT_BYTES) return "Document is too large. Maximum size is 10 MB.";
   return null;
 }
 
@@ -31,6 +40,10 @@ export async function resizeImage(file: Blob, maxSize: number, quality = 0.85): 
   ctx.drawImage(bitmap, 0, 0, w, h);
   bitmap.close();
   return new Promise((resolve, reject) =>
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Could not process image."))), "image/jpeg", quality),
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("Could not process image."))),
+      "image/jpeg",
+      quality,
+    ),
   );
 }

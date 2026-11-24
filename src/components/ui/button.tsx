@@ -21,7 +21,8 @@ const buttonVariants = cva(
           "rounded-full border-2 border-navy bg-card/80 text-navy hover:bg-navy hover:text-navy-foreground",
         pill: "rounded-full bg-primary text-primary-foreground shadow-card hover:bg-primary/90",
         gold: "rounded-full bg-gold text-navy shadow-card hover:bg-gold/90",
-        onNavy: "rounded-full border border-navy-foreground/40 bg-navy-foreground/10 text-navy-foreground hover:bg-navy-foreground/20",
+        onNavy:
+          "rounded-full border border-navy-foreground/40 bg-navy-foreground/10 text-navy-foreground hover:bg-navy-foreground/20",
       },
       size: {
         default: "h-9 px-4 py-2",

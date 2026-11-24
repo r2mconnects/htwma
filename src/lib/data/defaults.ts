@@ -1,15 +1,17 @@
-import type { SiteSettings } from "./types";
+import type { MemberSensitive, SiteSettings } from "./types";
 
 /**
- * Default public content. Values marked "[Placeholder]" must be confirmed by the
- * association and can be edited from Admin → Settings.
+ * Fallback website metadata shown briefly while Supabase settings load.
+ * Real values are stored in and fetched from public.site_settings in Supabase PostgreSQL.
  */
 export const DEFAULT_SETTINGS: SiteSettings = {
   association_name: "Hindupur Two Wheelers Mechanic & Owners Association",
   short_name: "HTWMA",
   tagline: "Together for a Stronger Two Wheeler Community",
+  logo_path: null,
   location_label: "Hindupur, Andhra Pradesh",
-  address: "#17-8-146, Ward No.17, Parigi Road, Hindupur-515201, Sri Sathya Sai Dist., Andhra Pradesh",
+  address:
+    "#17-8-146, Ward No.17, Parigi Road, Hindupur-515201, Sri Sathya Sai Dist., Andhra Pradesh",
   phone: "7386557855",
   whatsapp: "7386557855",
   email: "",
@@ -35,27 +37,22 @@ export const DEFAULT_SETTINGS: SiteSettings = {
     "Representation of members' common concerns",
     "Community and social service activities",
   ].join("\n"),
-  updates: [
-    {
-      id: "u1",
-      title: "Member records are going digital",
-      date: "2026-11-21",
-      body: "The association is moving its paper registration records to a secure digital system. Members may be contacted to confirm their details.",
-    },
-  ],
   form_code: "REGISTRATION FORM F-140/2020, HINDUPUR",
   required_fields: ["mobile"],
   fee_defaults: { Registration: 199, Annual: 199 },
 };
 
-export const DEFAULT_ROLES = [
-  { role_name: "President", is_multiple_allowed: false },
-  { role_name: "Vice President", is_multiple_allowed: false },
-  { role_name: "General Secretary", is_multiple_allowed: false },
-  { role_name: "Secretary", is_multiple_allowed: false },
-  { role_name: "Treasurer", is_multiple_allowed: false },
-  { role_name: "Executive Committee Member", is_multiple_allowed: true },
-] as const;
+export const EMPTY_SENSITIVE: MemberSensitive = {
+  aadhaar_number: "",
+  pan_number: "",
+  driving_licence_number: "",
+  aadhaar_doc_path: null,
+  pan_doc_path: null,
+  dl_doc_path: null,
+  other_doc_path: null,
+  other_doc_label: "",
+  notes: "",
+};
 
 export function isPlaceholder(value: string): boolean {
   return !value.trim() || value.includes("[Placeholder]");

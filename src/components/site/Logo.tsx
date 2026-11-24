@@ -1,20 +1,60 @@
 import { Cog, Motorbike } from "lucide-react";
+import { StorageImage } from "@/components/StorageImage";
+import { useSettings } from "@/lib/data/hooks";
+import { DEFAULT_SETTINGS } from "@/lib/data/defaults";
 import { cn } from "@/lib/utils";
 
-/** Placeholder emblem until the association supplies its official logo. */
-export function LogoMark({ className, tone = "default" }: { className?: string; tone?: "default" | "light" }) {
+/** Association emblem — displays uploaded official logo from public-media when configured. */
+export function LogoMark({
+  className,
+  tone = "default",
+}: {
+  className?: string;
+  tone?: "default" | "light";
+}) {
   return (
-    <span className={cn("relative inline-grid shrink-0 place-items-center", className)} aria-hidden="true">
-      <Cog className={cn("absolute inset-0 size-full", tone === "light" ? "text-navy-foreground/70" : "text-brand")} strokeWidth={1.6} />
-      <Motorbike className={cn("relative size-[52%]", tone === "light" ? "text-gold" : "text-navy")} strokeWidth={2.2} />
+    <span
+      className={cn("relative inline-grid shrink-0 place-items-center", className)}
+      aria-hidden="true"
+    >
+      <Cog
+        className={cn(
+          "absolute inset-0 size-full",
+          tone === "light" ? "text-navy-foreground/70" : "text-brand",
+        )}
+        strokeWidth={1.6}
+      />
+      <Motorbike
+        className={cn("relative size-[52%]", tone === "light" ? "text-gold" : "text-navy")}
+        strokeWidth={2.2}
+      />
     </span>
   );
 }
 
-export function Logo({ tone = "default", compact = false }: { tone?: "default" | "light"; compact?: boolean }) {
+export function Logo({
+  tone = "default",
+  compact = false,
+}: {
+  tone?: "default" | "light";
+  compact?: boolean;
+}) {
+  const { data } = useSettings();
+  const s = data ?? DEFAULT_SETTINGS;
+  const markSize = compact ? "size-10" : "size-12 sm:size-14";
+
   return (
     <span className="flex min-w-0 items-center gap-2.5">
-      <LogoMark className={compact ? "size-10" : "size-12 sm:size-14"} tone={tone} />
+      {s.logo_path ? (
+        <StorageImage
+          bucket="public-media"
+          path={s.logo_path}
+          alt={s.short_name}
+          className={cn("shrink-0 rounded-lg object-contain", markSize)}
+        />
+      ) : (
+        <LogoMark className={markSize} tone={tone} />
+      )}
       <span className="flex min-w-0 flex-col leading-none">
         <span
           className={cn(
@@ -23,7 +63,7 @@ export function Logo({ tone = "default", compact = false }: { tone?: "default" |
             tone === "light" ? "text-navy-foreground" : "text-navy",
           )}
         >
-          HTWMA
+          {s.short_name || "HTWMA"}
         </span>
         {!compact && (
           <span
@@ -32,7 +72,7 @@ export function Logo({ tone = "default", compact = false }: { tone?: "default" |
               tone === "light" ? "text-navy-foreground/80" : "text-navy",
             )}
           >
-            Hindupur Two Wheeler Mechanics &amp; Owners Association
+            {s.association_name}
           </span>
         )}
       </span>

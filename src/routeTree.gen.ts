@@ -17,10 +17,12 @@ import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as AdminPanelRouteImport } from './routes/admin/_panel'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as AdminPanelIndexRouteImport } from './routes/admin/_panel/index'
+import { Route as AdminPanelAnnouncementsRouteImport } from './routes/admin/_panel/announcements'
 import { Route as AdminPanelCommitteeRouteImport } from './routes/admin/_panel/committee'
 import { Route as AdminPanelFeesRouteImport } from './routes/admin/_panel/fees'
 import { Route as AdminPanelGalleryRouteImport } from './routes/admin/_panel/gallery'
 import { Route as AdminPanelImportExportRouteImport } from './routes/admin/_panel/import-export'
+import { Route as AdminPanelMessagesRouteImport } from './routes/admin/_panel/messages'
 import { Route as AdminPanelRegistrationFormRouteImport } from './routes/admin/_panel/registration-form'
 import { Route as AdminPanelSettingsRouteImport } from './routes/admin/_panel/settings'
 import { Route as AdminPanelMembersIndexRouteImport } from './routes/admin/_panel/members.index'
@@ -70,6 +72,11 @@ const AdminPanelIndexRoute = AdminPanelIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminPanelRoute,
 } as any)
+const AdminPanelAnnouncementsRoute = AdminPanelAnnouncementsRouteImport.update({
+  id: '/announcements',
+  path: '/announcements',
+  getParentRoute: () => AdminPanelRoute,
+} as any)
 const AdminPanelCommitteeRoute = AdminPanelCommitteeRouteImport.update({
   id: '/committee',
   path: '/committee',
@@ -88,6 +95,11 @@ const AdminPanelGalleryRoute = AdminPanelGalleryRouteImport.update({
 const AdminPanelImportExportRoute = AdminPanelImportExportRouteImport.update({
   id: '/import-export',
   path: '/import-export',
+  getParentRoute: () => AdminPanelRoute,
+} as any)
+const AdminPanelMessagesRoute = AdminPanelMessagesRouteImport.update({
+  id: '/messages',
+  path: '/messages',
   getParentRoute: () => AdminPanelRoute,
 } as any)
 const AdminPanelRegistrationFormRoute =
@@ -142,10 +154,12 @@ export interface FileRoutesByFullPath {
   '/gallery': typeof GalleryRoute
   '/admin': typeof AdminPanelRouteWithChildren
   '/admin/login': typeof AdminLoginRoute
+  '/admin/announcements': typeof AdminPanelAnnouncementsRoute
   '/admin/committee': typeof AdminPanelCommitteeRoute
   '/admin/fees': typeof AdminPanelFeesRoute
   '/admin/gallery': typeof AdminPanelGalleryRoute
   '/admin/import-export': typeof AdminPanelImportExportRoute
+  '/admin/messages': typeof AdminPanelMessagesRoute
   '/admin/registration-form': typeof AdminPanelRegistrationFormRoute
   '/admin/settings': typeof AdminPanelSettingsRoute
   '/admin/': typeof AdminPanelIndexRoute
@@ -163,10 +177,12 @@ export interface FileRoutesByTo {
   '/contact': typeof ContactRoute
   '/gallery': typeof GalleryRoute
   '/admin/login': typeof AdminLoginRoute
+  '/admin/announcements': typeof AdminPanelAnnouncementsRoute
   '/admin/committee': typeof AdminPanelCommitteeRoute
   '/admin/fees': typeof AdminPanelFeesRoute
   '/admin/gallery': typeof AdminPanelGalleryRoute
   '/admin/import-export': typeof AdminPanelImportExportRoute
+  '/admin/messages': typeof AdminPanelMessagesRoute
   '/admin/registration-form': typeof AdminPanelRegistrationFormRoute
   '/admin/settings': typeof AdminPanelSettingsRoute
   '/admin': typeof AdminPanelIndexRoute
@@ -186,10 +202,12 @@ export interface FileRoutesById {
   '/gallery': typeof GalleryRoute
   '/admin/_panel': typeof AdminPanelRouteWithChildren
   '/admin/login': typeof AdminLoginRoute
+  '/admin/_panel/announcements': typeof AdminPanelAnnouncementsRoute
   '/admin/_panel/committee': typeof AdminPanelCommitteeRoute
   '/admin/_panel/fees': typeof AdminPanelFeesRoute
   '/admin/_panel/gallery': typeof AdminPanelGalleryRoute
   '/admin/_panel/import-export': typeof AdminPanelImportExportRoute
+  '/admin/_panel/messages': typeof AdminPanelMessagesRoute
   '/admin/_panel/registration-form': typeof AdminPanelRegistrationFormRoute
   '/admin/_panel/settings': typeof AdminPanelSettingsRoute
   '/admin/_panel/': typeof AdminPanelIndexRoute
@@ -210,10 +228,12 @@ export interface FileRouteTypes {
     | '/gallery'
     | '/admin'
     | '/admin/login'
+    | '/admin/announcements'
     | '/admin/committee'
     | '/admin/fees'
     | '/admin/gallery'
     | '/admin/import-export'
+    | '/admin/messages'
     | '/admin/registration-form'
     | '/admin/settings'
     | '/admin/'
@@ -231,10 +251,12 @@ export interface FileRouteTypes {
     | '/contact'
     | '/gallery'
     | '/admin/login'
+    | '/admin/announcements'
     | '/admin/committee'
     | '/admin/fees'
     | '/admin/gallery'
     | '/admin/import-export'
+    | '/admin/messages'
     | '/admin/registration-form'
     | '/admin/settings'
     | '/admin'
@@ -253,10 +275,12 @@ export interface FileRouteTypes {
     | '/gallery'
     | '/admin/_panel'
     | '/admin/login'
+    | '/admin/_panel/announcements'
     | '/admin/_panel/committee'
     | '/admin/_panel/fees'
     | '/admin/_panel/gallery'
     | '/admin/_panel/import-export'
+    | '/admin/_panel/messages'
     | '/admin/_panel/registration-form'
     | '/admin/_panel/settings'
     | '/admin/_panel/'
@@ -336,6 +360,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminPanelIndexRouteImport
       parentRoute: typeof AdminPanelRoute
     }
+    '/admin/_panel/announcements': {
+      id: '/admin/_panel/announcements'
+      path: '/announcements'
+      fullPath: '/admin/announcements'
+      preLoaderRoute: typeof AdminPanelAnnouncementsRouteImport
+      parentRoute: typeof AdminPanelRoute
+    }
     '/admin/_panel/committee': {
       id: '/admin/_panel/committee'
       path: '/committee'
@@ -362,6 +393,13 @@ declare module '@tanstack/react-router' {
       path: '/import-export'
       fullPath: '/admin/import-export'
       preLoaderRoute: typeof AdminPanelImportExportRouteImport
+      parentRoute: typeof AdminPanelRoute
+    }
+    '/admin/_panel/messages': {
+      id: '/admin/_panel/messages'
+      path: '/messages'
+      fullPath: '/admin/messages'
+      preLoaderRoute: typeof AdminPanelMessagesRouteImport
       parentRoute: typeof AdminPanelRoute
     }
     '/admin/_panel/registration-form': {
@@ -424,10 +462,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface AdminPanelRouteChildren {
+  AdminPanelAnnouncementsRoute: typeof AdminPanelAnnouncementsRoute
   AdminPanelCommitteeRoute: typeof AdminPanelCommitteeRoute
   AdminPanelFeesRoute: typeof AdminPanelFeesRoute
   AdminPanelGalleryRoute: typeof AdminPanelGalleryRoute
   AdminPanelImportExportRoute: typeof AdminPanelImportExportRoute
+  AdminPanelMessagesRoute: typeof AdminPanelMessagesRoute
   AdminPanelRegistrationFormRoute: typeof AdminPanelRegistrationFormRoute
   AdminPanelSettingsRoute: typeof AdminPanelSettingsRoute
   AdminPanelIndexRoute: typeof AdminPanelIndexRoute
@@ -440,10 +480,12 @@ interface AdminPanelRouteChildren {
 }
 
 const AdminPanelRouteChildren: AdminPanelRouteChildren = {
+  AdminPanelAnnouncementsRoute: AdminPanelAnnouncementsRoute,
   AdminPanelCommitteeRoute: AdminPanelCommitteeRoute,
   AdminPanelFeesRoute: AdminPanelFeesRoute,
   AdminPanelGalleryRoute: AdminPanelGalleryRoute,
   AdminPanelImportExportRoute: AdminPanelImportExportRoute,
+  AdminPanelMessagesRoute: AdminPanelMessagesRoute,
   AdminPanelRegistrationFormRoute: AdminPanelRegistrationFormRoute,
   AdminPanelSettingsRoute: AdminPanelSettingsRoute,
   AdminPanelIndexRoute: AdminPanelIndexRoute,

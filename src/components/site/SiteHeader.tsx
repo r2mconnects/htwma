@@ -33,12 +33,18 @@ export function SiteHeader() {
               <span className="truncate">{s.location_label}</span>
             </span>
             {s.phone && (
-              <a href={`tel:+91${s.phone}`} className="hidden items-center gap-1.5 hover:text-gold sm:flex">
+              <a
+                href={`tel:+91${s.phone}`}
+                className="hidden items-center gap-1.5 hover:text-gold sm:flex"
+              >
                 <Phone className="size-4" /> +91 {s.phone.replace(/(\d{5})(\d{5})/, "$1 $2")}
               </a>
             )}
             {s.email && (
-              <a href={`mailto:${s.email}`} className="hidden items-center gap-1.5 hover:text-gold md:flex">
+              <a
+                href={`mailto:${s.email}`}
+                className="hidden items-center gap-1.5 hover:text-gold md:flex"
+              >
                 <Mail className="size-4" /> {s.email}
               </a>
             )}
@@ -65,7 +71,9 @@ export function SiteHeader() {
                   to={item.to}
                   className={cn(
                     "flex items-center gap-2 rounded-full px-5 py-2.5 text-[15px] font-medium transition",
-                    active ? "bg-primary text-primary-foreground shadow-card" : "text-navy hover:bg-secondary",
+                    active
+                      ? "bg-primary text-primary-foreground shadow-card"
+                      : "text-navy hover:bg-secondary",
                   )}
                 >
                   <item.icon className="size-[18px]" />
@@ -101,7 +109,9 @@ export function SiteHeader() {
                         onClick={() => setOpen(false)}
                         className={cn(
                           "flex items-center gap-3 rounded-xl px-4 py-3 font-medium",
-                          active ? "bg-primary text-primary-foreground" : "text-navy hover:bg-secondary",
+                          active
+                            ? "bg-primary text-primary-foreground"
+                            : "text-navy hover:bg-secondary",
                         )}
                       >
                         <item.icon className="size-5" />

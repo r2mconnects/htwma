@@ -1,9 +1,15 @@
 import type {
   AdminSession,
+  AdminUserRecord,
+  Announcement,
+  AnnouncementInput,
   AuditLog,
   CommitteeAssignment,
   CommitteeAssignmentInput,
   CommitteeRole,
+  ContactMessage,
+  ContactMessageStatus,
+  ContactMessageSubmitInput,
   FeePayment,
   FeePaymentInput,
   GalleryItem,
@@ -18,13 +24,10 @@ import type {
 } from "./types";
 
 /**
- * The ONLY contract the UI talks to. Implementations:
- *  - local/local-provider.ts    → browser localStorage + IndexedDB (default, works offline)
- *  - supabase/supabase-provider.ts → your Supabase project (set VITE_DATA_BACKEND=supabase)
- * Swap backends in src/lib/data/index.ts without touching any page.
+ * Supabase PostgreSQL data service contract for the HTWMA Member Hub.
  */
 export interface DataProvider {
-  kind: "local" | "supabase";
+  kind: "supabase";
 
   auth: {
     getSession(): Promise<AdminSession | null>;
@@ -33,13 +36,15 @@ export interface DataProvider {
     verifyPassword(password: string): Promise<boolean>;
     changePassword(current: string, next: string): Promise<void>;
     requestPasswordReset(email: string): Promise<void>;
+    listAdmins(): Promise<AdminUserRecord[]>;
   };
 
   members: {
     list(): Promise<Member[]>;
     get(id: string): Promise<Member | null>;
+    peekNextNumber(): Promise<string>;
     getSensitive(id: string): Promise<MemberSensitive>;
-    /** Full ID numbers for many members — only for elevated exports. */
+    /** Full ID numbers for many members — only for password-verified admin exports. */
     getSensitiveMany(ids: string[]): Promise<Record<string, MemberSensitive>>;
     create(input: MemberInput): Promise<Member>;
     update(id: string, input: MemberInput): Promise<Member>;
@@ -51,7 +56,7 @@ export interface DataProvider {
 
   fees: {
     list(): Promise<FeePayment[]>;
-    /** Leave receipt_number blank to auto-number (R-0001, R-0002…). */
+    /** Leave receipt_number blank to auto-number atomically via member_sequences (R-0001, R-0002…). */
     create(input: FeePaymentInput): Promise<FeePayment>;
     update(id: string, input: FeePaymentInput): Promise<FeePayment>;
     remove(id: string): Promise<void>;
@@ -62,7 +67,9 @@ export interface DataProvider {
     saveRole(role: Omit<CommitteeRole, "id"> & { id: string | null }): Promise<CommitteeRole>;
     deleteRole(id: string): Promise<void>;
     listAssignments(): Promise<CommitteeAssignment[]>;
-    saveAssignment(input: CommitteeAssignmentInput & { id: string | null }): Promise<CommitteeAssignment>;
+    saveAssignment(
+      input: CommitteeAssignmentInput & { id: string | null },
+    ): Promise<CommitteeAssignment>;
     deleteAssignment(id: string): Promise<void>;
     listPublic(): Promise<PublicCommitteeEntry[]>;
   };
@@ -76,6 +83,24 @@ export interface DataProvider {
     reorder(orderedIds: string[]): Promise<void>;
   };
 
+  announcements: {
+    list(): Promise<Announcement[]>;
+    listPublished(): Promise<Announcement[]>;
+    create(input: AnnouncementInput): Promise<Announcement>;
+    update(id: string, patch: Partial<AnnouncementInput>): Promise<Announcement>;
+    remove(id: string): Promise<void>;
+  };
+
+  messages: {
+    submit(input: ContactMessageSubmitInput): Promise<string>;
+    list(): Promise<ContactMessage[]>;
+    update(
+      id: string,
+      patch: { status?: ContactMessageStatus | undefined; admin_notes?: string | undefined },
+    ): Promise<ContactMessage>;
+    remove(id: string): Promise<void>;
+  };
+
   content: {
     getSettings(): Promise<SiteSettings>;
     updateSettings(patch: Partial<SiteSettings>): Promise<SiteSettings>;
@@ -83,7 +108,7 @@ export interface DataProvider {
 
   files: {
     upload(bucket: StorageBucket, file: Blob, filename: string): Promise<string>;
-    /** Resolves a stored path to a displayable URL (object URL / signed URL / public URL). */
+    /** Resolves a stored path to a displayable URL (short-lived signed URL for private buckets, public URL for public-media). */
     getUrl(bucket: StorageBucket, path: string): Promise<string | null>;
     remove(bucket: StorageBucket, path: string): Promise<void>;
   };
@@ -93,15 +118,13 @@ export interface DataProvider {
     list(limit: number): Promise<AuditLog[]>;
   };
 
-  /** Backup/restore + demo data tools. */
   maintenance: {
     exportBackup(): Promise<unknown>;
-    restoreBackup(data: unknown): Promise<void>;
     clearDemoData(): Promise<number>;
   };
 }
 
-/** Paths that are already URLs (seeded/bundled images) bypass storage. */
+/** Paths that are already URLs bypass storage lookup. */
 export function isDirectUrl(path: string): boolean {
   return /^(https?:|\/|data:|blob:)/.test(path);
 }

@@ -13,13 +13,19 @@ import {
   Scale,
   GraduationCap,
   CalendarDays,
+  Pin,
 } from "lucide-react";
 import heroAsset from "@/assets/htwma-hero.png";
 import lepakshi from "@/assets/lepakshi-nandi.jpg";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { Button } from "@/components/ui/button";
 import { StorageImage } from "@/components/StorageImage";
-import { usePublicCommittee, usePublishedGallery, useSettings } from "@/lib/data/hooks";
+import {
+  usePublicCommittee,
+  usePublishedAnnouncements,
+  usePublishedGallery,
+  useSettings,
+} from "@/lib/data/hooks";
 import { DEFAULT_SETTINGS } from "@/lib/data/defaults";
 import { formatDate } from "@/lib/members";
 
@@ -53,10 +59,26 @@ const QUICK_LINKS = [
 ] as const;
 
 const HIGHLIGHTS = [
-  { icon: HeartHandshake, title: "Member Welfare", text: "Standing together for members and their families in times of need." },
-  { icon: GraduationCap, title: "Skill Development", text: "Keeping mechanics up to date with new vehicles and technology." },
-  { icon: Scale, title: "Fair Practices", text: "Encouraging honest, quality service that owners can trust." },
-  { icon: Wrench, title: "One Strong Voice", text: "Representing the common concerns of Hindupur's two-wheeler trade." },
+  {
+    icon: HeartHandshake,
+    title: "Member Welfare",
+    text: "Standing together for members and their families in times of need.",
+  },
+  {
+    icon: GraduationCap,
+    title: "Skill Development",
+    text: "Keeping mechanics up to date with new vehicles and technology.",
+  },
+  {
+    icon: Scale,
+    title: "Fair Practices",
+    text: "Encouraging honest, quality service that owners can trust.",
+  },
+  {
+    icon: Wrench,
+    title: "One Strong Voice",
+    text: "Representing the common concerns of Hindupur's two-wheeler trade.",
+  },
 ];
 
 function HomePage() {
@@ -64,15 +86,21 @@ function HomePage() {
   const s = data ?? DEFAULT_SETTINGS;
   const gallery = usePublishedGallery();
   const committee = usePublicCommittee();
+  const announcements = usePublishedAnnouncements();
   const photos = (gallery.data ?? []).slice(0, 3);
   const leaders = (committee.data ?? []).slice(0, 4);
+  const updates = (announcements.data ?? []).slice(0, 4);
 
   return (
     <SiteLayout>
       {/* HERO */}
       <section className="relative overflow-hidden bg-hero">
         <div className="relative lg:hidden">
-          <img src={heroAsset} alt="A mechanic servicing a motorcycle in a workshop" className="h-64 w-full object-cover sm:h-80" />
+          <img
+            src={heroAsset}
+            alt="A mechanic servicing a motorcycle in a workshop"
+            className="h-64 w-full object-cover sm:h-80"
+          />
         </div>
         <div className="absolute inset-y-0 right-0 hidden w-[58%] lg:block">
           <div className="hero-curve absolute inset-0 -left-4 bg-primary" />
@@ -126,7 +154,10 @@ function HomePage() {
               {...(q.hash ? { hash: q.hash } : {})}
               className={`group flex flex-col items-center gap-2 px-3 py-6 text-center transition hover:bg-secondary ${i > 0 ? "lg:border-l" : ""} ${i === 4 ? "col-span-2 sm:col-span-1" : ""}`}
             >
-              <q.icon className="size-10 text-primary transition group-hover:scale-110" strokeWidth={1.8} />
+              <q.icon
+                className="size-10 text-primary transition group-hover:scale-110"
+                strokeWidth={1.8}
+              />
               <span className="font-semibold text-navy">{q.title}</span>
               <span className="-mt-1.5 text-sm text-muted-foreground">{q.sub}</span>
             </Link>
@@ -169,7 +200,9 @@ function HomePage() {
           </div>
           <div className="grid grid-cols-3 gap-2">
             {photos.length === 0
-              ? [0, 1, 2].map((i) => <div key={i} className="aspect-[4/3] animate-pulse rounded-lg bg-card/70" />)
+              ? [0, 1, 2].map((i) => (
+                  <div key={i} className="aspect-[4/3] animate-pulse rounded-lg bg-card/70" />
+                ))
               : photos.map((p) => (
                   <Link key={p.id} to="/gallery" className="overflow-hidden rounded-lg">
                     <StorageImage
@@ -188,20 +221,30 @@ function HomePage() {
       <section className="relative overflow-hidden bg-navy-gradient text-navy-foreground">
         <div className="mx-auto flex max-w-7xl items-center gap-5 px-4 py-8 lg:px-8">
           <Handshake className="size-14 shrink-0 sm:size-16" strokeWidth={1.6} />
-          <p className="font-display text-2xl font-bold italic sm:text-4xl">Stronger Together – {s.short_name}</p>
-          <Motorbike className="absolute -right-4 bottom-0 hidden size-36 text-navy-foreground/25 md:block" strokeWidth={1.2} />
+          <p className="font-display text-2xl font-bold italic sm:text-4xl">
+            Stronger Together – {s.short_name}
+          </p>
+          <Motorbike
+            className="absolute -right-4 bottom-0 hidden size-36 text-navy-foreground/25 md:block"
+            strokeWidth={1.2}
+          />
         </div>
       </section>
 
       {/* HIGHLIGHTS */}
       <section className="mx-auto max-w-7xl px-4 py-16 lg:px-8">
         <div className="text-center">
-          <h2 className="font-display text-3xl font-bold text-navy sm:text-4xl">What We Stand For</h2>
+          <h2 className="font-display text-3xl font-bold text-navy sm:text-4xl">
+            What We Stand For
+          </h2>
           <div className="swoosh mx-auto mt-3 w-32" />
         </div>
         <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {HIGHLIGHTS.map((h) => (
-            <div key={h.title} className="rounded-2xl border bg-card p-6 shadow-card transition hover:-translate-y-1">
+            <div
+              key={h.title}
+              className="rounded-2xl border bg-card p-6 shadow-card transition hover:-translate-y-1"
+            >
               <div className="grid size-12 place-items-center rounded-xl bg-secondary text-primary">
                 <h.icon className="size-6" />
               </div>
@@ -219,7 +262,9 @@ function HomePage() {
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4">
               <div className="min-w-0">
                 <h2 className="font-display text-3xl font-bold text-navy">Our Committee</h2>
-                <p className="mt-1 text-muted-foreground">The office-bearers leading the association.</p>
+                <p className="mt-1 text-muted-foreground">
+                  The office-bearers leading the association.
+                </p>
               </div>
               <Button asChild variant="link" className="px-0">
                 <Link to="/committee">
@@ -229,7 +274,10 @@ function HomePage() {
             </div>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               {leaders.map((c) => (
-                <div key={c.id} className="flex items-center gap-4 rounded-2xl bg-card p-4 shadow-card">
+                <div
+                  key={c.id}
+                  className="flex items-center gap-4 rounded-2xl bg-card p-4 shadow-card"
+                >
                   <StorageImage
                     bucket="public-media"
                     path={c.photo_path}
@@ -243,7 +291,9 @@ function HomePage() {
                   </div>
                 </div>
               ))}
-              {leaders.length === 0 && <p className="text-sm text-muted-foreground">Committee details coming soon.</p>}
+              {leaders.length === 0 && (
+                <p className="text-sm text-muted-foreground">Committee details coming soon.</p>
+              )}
             </div>
           </div>
 
@@ -251,13 +301,24 @@ function HomePage() {
             <h2 className="font-display text-3xl font-bold text-navy">Latest Updates</h2>
             <p className="mt-1 text-muted-foreground">News and notices from the association.</p>
             <div className="mt-6 space-y-4">
-              {s.updates.length === 0 && <p className="text-sm text-muted-foreground">No updates right now.</p>}
-              {s.updates.map((u) => (
-                <article key={u.id} className="rounded-2xl border-l-4 border-primary bg-card p-5 shadow-card">
-                  <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                    <CalendarDays className="size-3.5" /> {formatDate(u.date)}
-                  </p>
-                  <h3 className="mt-1 font-semibold text-navy">{u.title}</h3>
+              {updates.length === 0 && (
+                <p className="text-sm text-muted-foreground">No updates right now.</p>
+              )}
+              {updates.map((u) => (
+                <article
+                  key={u.id}
+                  className="rounded-2xl border-l-4 border-primary bg-card p-5 shadow-card"
+                >
+                  <div className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
+                    <span className="flex items-center gap-1.5">
+                      <CalendarDays className="size-3.5" /> {formatDate(u.published_date)}
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-semibold text-navy">
+                      {u.is_pinned && <Pin className="size-3 text-primary" />}
+                      {u.category}
+                    </span>
+                  </div>
+                  <h3 className="mt-1.5 font-semibold text-navy">{u.title}</h3>
                   <p className="mt-1 text-sm leading-relaxed text-foreground/80">{u.body}</p>
                 </article>
               ))}
@@ -272,7 +333,8 @@ function HomePage() {
           <div>
             <h2 className="font-display text-3xl font-bold">Want to join or get in touch?</h2>
             <p className="mt-2 max-w-xl text-navy-foreground/85">
-              Membership registration is done at the association office. Call or message us and the committee will guide you.
+              Membership registration is done at the association office. Call or message us and the
+              committee will guide you.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
