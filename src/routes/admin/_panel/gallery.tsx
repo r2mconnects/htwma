@@ -60,10 +60,17 @@ function AdminGalleryPage() {
   const invalidate = useInvalidate();
   const [editing, setEditing] = useState<EditorState | null>(null);
   const [saving, setSaving] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function patchEditor(patch: Partial<EditorState>) {
+    setEditing((current) => (current ? { ...current, ...patch } : null));
+  }
 
   const items = gallery.data ?? [];
 
   function openNew() {
+    setError(null);
     setEditing({
       id: null,
       title: "",
@@ -78,6 +85,7 @@ function AdminGalleryPage() {
   }
 
   function openEdit(g: GalleryItem) {
+    setError(null);
     setEditing({
       id: g.id,
       title: g.title,
@@ -92,13 +100,14 @@ function AdminGalleryPage() {
   }
 
   async function save() {
-    if (!editing) return;
+    if (!editing || saving || processing) return;
+    setError(null);
     if (!editing.title.trim()) {
-      toast.error("Please enter a title");
+      setError("Please enter a title");
       return;
     }
     if (!editing.image.file && (!editing.image.path || editing.image.removed)) {
-      toast.error("Please choose an image");
+      setError("Please choose an image");
       return;
     }
     setSaving(true);
@@ -131,13 +140,15 @@ function AdminGalleryPage() {
           display_order: items.length + 1,
         });
       }
-      await finalizeStagedUploads(staged, db.files.remove);
+      // The row now references this file; never roll it back after a cache refresh failure.
+      staged.length = 0;
+      await finalizeStagedUploads([stagedImg], db.files.remove);
       await invalidate(qk.gallery, qk.publishedGallery, qk.audit);
       toast.success(editing.id ? "Photo updated" : "Photo uploaded");
       setEditing(null);
     } catch (e) {
       await rollbackStagedUploads(staged, db.files.remove);
-      toast.error(e instanceof Error ? e.message : "Could not save photo");
+      setError(e instanceof Error ? e.message : "Could not save photo");
     } finally {
       setSaving(false);
     }
@@ -253,7 +264,10 @@ function AdminGalleryPage() {
         </div>
       )}
 
-      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+      <Dialog
+        open={!!editing}
+        onOpenChange={(o) => !o && !saving && !processing && setEditing(null)}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{editing?.id ? "Edit photo" : "Upload photo"}</DialogTitle>
@@ -269,15 +283,18 @@ function AdminGalleryPage() {
                 aspect="wide"
                 maxSize={1600}
                 value={editing.image}
-                onChange={(image) => setEditing({ ...editing, image })}
+                onBusyChange={setProcessing}
+                disabled={saving}
+                onChange={(image) => patchEditor({ image })}
               />
               <div>
                 <Label htmlFor="g-title">Title *</Label>
                 <Input
+                  maxLength={120}
                   id="g-title"
                   className="mt-1.5"
                   value={editing.title}
-                  onChange={(e) => setEditing({ ...editing, title: e.target.value })}
+                  onChange={(e) => patchEditor({ title: e.target.value })}
                 />
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -285,9 +302,7 @@ function AdminGalleryPage() {
                   <Label>Category</Label>
                   <Select
                     value={editing.category}
-                    onValueChange={(v) =>
-                      setEditing({ ...editing, category: v as GalleryCategory })
-                    }
+                    onValueChange={(v) => patchEditor({ category: v as GalleryCategory })}
                   >
                     <SelectTrigger className="mt-1.5">
                       <SelectValue />
@@ -308,35 +323,45 @@ function AdminGalleryPage() {
                     type="date"
                     className="mt-1.5"
                     value={editing.event_date}
-                    onChange={(e) => setEditing({ ...editing, event_date: e.target.value })}
+                    onChange={(e) => patchEditor({ event_date: e.target.value })}
                   />
                 </div>
               </div>
               <div>
                 <Label htmlFor="g-desc">Caption / description (optional)</Label>
                 <Textarea
+                  maxLength={500}
                   id="g-desc"
                   rows={3}
                   className="mt-1.5"
                   value={editing.caption}
-                  onChange={(e) => setEditing({ ...editing, caption: e.target.value })}
+                  onChange={(e) => patchEditor({ caption: e.target.value })}
                 />
               </div>
               <label className="flex items-center gap-2 text-sm">
                 <Checkbox
                   checked={editing.is_published}
-                  onCheckedChange={(c) => setEditing({ ...editing, is_published: c === true })}
+                  onCheckedChange={(c) => patchEditor({ is_published: c === true })}
                 />
                 Show on public Gallery page
               </label>
             </div>
           )}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditing(null)}>
+            <Button
+              variant="outline"
+              disabled={saving || processing}
+              onClick={() => setEditing(null)}
+            >
               Cancel
             </Button>
-            <Button variant="navy" onClick={() => void save()} disabled={saving}>
-              Save
+            <Button variant="navy" onClick={() => void save()} disabled={saving || processing}>
+              {processing ? "Processing image…" : saving ? "Saving…" : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>

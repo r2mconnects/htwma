@@ -30,6 +30,8 @@ export function ImageInput({
   maxSize = 800,
   aspect = "portrait",
   hint,
+  onBusyChange,
+  disabled = false,
 }: {
   label: string;
   bucket: StorageBucket;
@@ -38,10 +40,13 @@ export function ImageInput({
   maxSize?: number;
   aspect?: "portrait" | "wide";
   hint?: string;
+  onBusyChange?: (busy: boolean) => void;
+  disabled?: boolean;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!value.file) {
@@ -54,20 +59,27 @@ export function ImageInput({
   }, [value.file]);
 
   async function pick(file: File | undefined) {
-    if (!file) return;
+    if (!file || busy || disabled) return;
+    setError(null);
     const err = validateImageFile(file);
     if (err) {
+      setError(err);
+      if (ref.current) ref.current.value = "";
       toast.error(err);
       return;
     }
     setBusy(true);
+    onBusyChange?.(true);
     try {
       const blob = await resizeImage(file, maxSize);
       onChange({ ...value, file: blob, removed: false });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not use this image");
+      const message = e instanceof Error ? e.message : "Could not use this image";
+      setError(message);
+      toast.error(message);
     } finally {
       setBusy(false);
+      onBusyChange?.(false);
       if (ref.current) ref.current.value = "";
     }
   }
@@ -87,6 +99,7 @@ export function ImageInput({
           ) : (
             <button
               type="button"
+              disabled={busy || disabled}
               onClick={() => ref.current?.click()}
               className="grid h-full w-full place-items-center text-muted-foreground hover:text-primary"
             >
@@ -100,7 +113,7 @@ export function ImageInput({
             variant="outline"
             size="sm"
             onClick={() => ref.current?.click()}
-            disabled={busy}
+            disabled={busy || disabled}
           >
             {hasImage ? <RefreshCw /> : <ImagePlus />} {hasImage ? "Replace" : "Upload"}
           </Button>
@@ -110,6 +123,7 @@ export function ImageInput({
               variant="ghost"
               size="sm"
               className="text-destructive"
+              disabled={busy || disabled}
               onClick={() => onChange({ ...value, file: null, removed: true })}
             >
               <Trash2 /> Remove
@@ -118,8 +132,18 @@ export function ImageInput({
         </div>
       </div>
       <p className="mt-1.5 text-xs text-muted-foreground">
-        {hint ?? "JPG, PNG or WebP, up to 8 MB."}
+        {hint ?? "JPG, PNG or WebP, up to 25 MB. Resized before upload."}
       </p>
+      {busy && (
+        <p role="status" className="text-xs">
+          Processing image…
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
       <input
         ref={ref}
         type="file"
