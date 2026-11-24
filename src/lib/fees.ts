@@ -19,9 +19,14 @@ export interface DateRange {
 }
 
 const pad = (n: number) => String(n).padStart(2, "0");
-export const isoDay = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+export const isoDay = (d: Date) =>
+  `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-export function presetRange(preset: RangePreset, today: Date = new Date(), custom: DateRange = { from: null, to: null }): DateRange {
+export function presetRange(
+  preset: RangePreset,
+  today: Date = new Date(),
+  custom: DateRange = { from: null, to: null },
+): DateRange {
   const y = today.getFullYear();
   const m = today.getMonth();
   switch (preset) {
@@ -61,7 +66,9 @@ export function formatINR(amount: number): string {
   return `₹${Math.round(amount).toLocaleString("en-IN")}`;
 }
 
-export function totalsByType(list: FeePayment[]): Array<{ type: FeeType; total: number; count: number }> {
+export function totalsByType(
+  list: FeePayment[],
+): Array<{ type: FeeType; total: number; count: number }> {
   const map = new Map<FeeType, { total: number; count: number }>();
   for (const p of list) {
     const cur = map.get(p.fee_type) ?? { total: 0, count: 0 };
@@ -83,13 +90,21 @@ export function nextReceiptNumber(existing: string[]): string {
 }
 
 /** Members (not archived) with no Annual fee recorded for the given year. */
-export function membersWithPendingAnnualFee(members: Member[], payments: FeePayment[], year: string): Member[] {
-  const paid = new Set(payments.filter((p) => p.fee_type === "Annual" && p.period === year).map((p) => p.member_id));
+export function membersWithPendingAnnualFee(
+  members: Member[],
+  payments: FeePayment[],
+  year: string,
+): Member[] {
+  const paid = new Set(
+    payments.filter((p) => p.fee_type === "Annual" && p.period === year).map((p) => p.member_id),
+  );
   return members.filter((m) => m.status !== "archived" && !paid.has(m.id));
 }
 
 export function hasPaidAnnual(memberId: string, payments: FeePayment[], year: string): boolean {
-  return payments.some((p) => p.member_id === memberId && p.fee_type === "Annual" && p.period === year);
+  return payments.some(
+    (p) => p.member_id === memberId && p.fee_type === "Annual" && p.period === year,
+  );
 }
 
 /** Validates an amount typed by an admin: whole rupees, 1 – 10,00,000. */

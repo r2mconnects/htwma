@@ -1,210 +1,462 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  Archive,
+  ArchiveRestore,
+  ArrowLeft,
+  Edit,
+  Eye,
+  EyeOff,
+  FileText,
+  IndianRupee,
+  Plus,
+  Printer,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
-import { Pencil, Printer, Archive, ArchiveRestore, Trash2, Eye, EyeOff, ArrowLeft, UserX, ShieldCheck, IndianRupee, Plus } from "lucide-react";
-import { PageHeader, StatusBadge, LoadingBlock, EmptyState } from "@/components/admin/common";
-import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
+import { db } from "@/lib/data";
+import { qk, useFees, useInvalidate, useMember } from "@/lib/data/hooks";
+import type { FeePayment, MemberSensitive } from "@/lib/data/types";
+import { formatINR } from "@/lib/fees";
+import { computeAge, formatDate, initials, maskId } from "@/lib/members";
+import { FeeDialog } from "@/components/admin/FeeDialog";
+import { PageHeader, Section, StatusBadge } from "@/components/admin/common";
 import { StorageImage } from "@/components/StorageImage";
 import { Button } from "@/components/ui/button";
-import { db } from "@/lib/data";
-import { qk, useFees, useInvalidate, useMember, useMembers } from "@/lib/data/hooks";
-import type { FeePayment, MemberSensitive } from "@/lib/data/types";
-import { computeAge, formatDate, maskId } from "@/lib/members";
-import { FeeDialog } from "@/components/admin/FeeDialog";
-import { formatINR, hasPaidAnnual, sumAmounts } from "@/lib/fees";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/admin/_panel/members/$id/")({
-  head: () => ({ meta: [{ title: "Member Profile – HTWMA Admin" }, { name: "robots", content: "noindex" }] }),
-  component: MemberProfile,
+  head: () => ({ meta: [{ title: "Member Details — HTWMA Admin" }] }),
+  component: MemberDetailPage,
 });
 
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="grid grid-cols-[9rem_1fr] gap-3 border-b py-2.5 text-sm last:border-0 sm:grid-cols-[11rem_1fr]">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="break-words font-medium">{value || "—"}</dd>
-    </div>
-  );
-}
-
-function MemberProfile() {
+function MemberDetailPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
+  const member = useMember(id);
   const invalidate = useInvalidate();
-  const { data: m, isLoading } = useMember(id);
-  const [ids, setIds] = useState<MemberSensitive | null>(null);
   const fees = useFees();
-  const allMembers = useMembers();
-  const [feeDialog, setFeeDialog] = useState<{ open: boolean; editing: FeePayment | null }>({ open: false, editing: null });
+  const [revealed, setRevealed] = useState<MemberSensitive | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [feeDialog, setFeeDialog] = useState<{ open: boolean; editing: FeePayment | null }>({
+    open: false,
+    editing: null,
+  });
+  const [deletingFee, setDeletingFee] = useState<FeePayment | null>(null);
 
-  if (isLoading) return <LoadingBlock />;
-  if (!m) return <EmptyState icon={<UserX className="size-6" />} title="Member not found" text="This record may have been deleted." action={<Button asChild variant="outline"><Link to="/admin/members">Back to members</Link></Button>} />;
+  // Always clear revealed sensitive state when navigating between member profiles
+  useEffect(() => {
+    setRevealed(null);
+  }, [id]);
 
-  async function reveal() {
-    if (ids) { setIds(null); return; }
+  if (member.isPending) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  const m = member.data;
+  if (!m) {
+    return (
+      <div className="rounded-2xl border bg-card p-8 text-center">
+        <p className="font-semibold">Member not found.</p>
+        <Button asChild variant="outline" className="mt-4">
+          <Link to="/admin/members">Back to members</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  async function toggleReveal() {
+    if (revealed) {
+      setRevealed(null);
+      return;
+    }
     const s = await db.members.getSensitive(id);
-    await db.audit.log("view_sensitive", "member", id, `Viewed ID numbers of #${m!.member_number}`);
-    setIds(s);
+    await db.audit.log(
+      "reveal_sensitive",
+      "member",
+      id,
+      `Viewed full ID numbers for #${m!.member_number} ${m!.full_name}`,
+    );
+    await invalidate(qk.audit);
+    setRevealed(s);
   }
 
-  async function setStatus(status: "active" | "archived") {
-    await db.members.setStatus(id, status);
-    await invalidate(qk.members);
-    toast.success(status === "archived" ? "Member archived" : "Member restored");
+  async function openPrivateDocument(path: string | null, label: string) {
+    if (!path) return;
+    const url = await db.files.getUrl("member-documents", path);
+    if (!url) {
+      toast.error("Could not generate secure document URL");
+      return;
+    }
+    await db.audit.log(
+      "view_document",
+      "member",
+      id,
+      `Opened private ${label} document for #${m!.member_number}`,
+    );
+    await invalidate(qk.audit);
+    window.open(url, "_blank", "noopener,noreferrer");
   }
 
-  async function remove() {
+  async function toggleArchive() {
+    const next = m!.status === "archived" ? "active" : "archived";
+    await db.members.setStatus(id, next);
+    await invalidate(qk.member(id), qk.members, qk.publicCommittee, qk.audit);
+    toast.success(next === "archived" ? "Member archived" : "Member restored");
+  }
+
+  async function removePermanently() {
     await db.members.remove(id);
-    await invalidate(qk.members, qk.assignments, qk.publicCommittee, qk.fees);
+    await invalidate(qk.members, qk.assignments, qk.publicCommittee, qk.fees, qk.audit);
     toast.success("Member permanently deleted");
     navigate({ to: "/admin/members" });
   }
 
+  const year = String(new Date().getFullYear());
+  const memberPayments = (fees.data ?? []).filter((p) => p.member_id === id);
+  const paidThisYear = memberPayments.some((p) => p.fee_type === "Annual" && p.period === year);
+  const totalPaid = memberPayments.reduce((s, p) => s + p.amount, 0);
+
+  async function deleteFee() {
+    if (!deletingFee) return;
+    await db.fees.remove(deletingFee.id);
+    await invalidate(qk.fees, qk.audit);
+    toast.success("Payment deleted");
+    setDeletingFee(null);
+  }
+
+  const Field = ({ label, value }: { label: string; value: React.ReactNode }) => (
+    <div>
+      <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </dt>
+      <dd className="mt-1 text-sm font-medium text-foreground">{value || "—"}</dd>
+    </div>
+  );
+
+  const attachedDocs = revealed
+    ? [
+        { label: "Aadhaar copy", path: revealed.aadhaar_doc_path },
+        { label: "PAN copy", path: revealed.pan_doc_path },
+        { label: "Driving licence copy", path: revealed.dl_doc_path },
+        { label: revealed.other_doc_label || "Other document", path: revealed.other_doc_path },
+      ].filter((d) => !!d.path)
+    : [];
+
   return (
-    <div className="mx-auto max-w-5xl">
-      <Link to="/admin/members" className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary">
+    <div className="space-y-6">
+      <Link
+        to="/admin/members"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-navy"
+      >
         <ArrowLeft className="size-4" /> All members
       </Link>
+
       <PageHeader
         title={m.full_name}
-        description={`Member ID #${m.member_number}${m.is_demo ? " · Demo record" : ""}`}
+        subtitle={`Member ID #${m.member_number}${m.registration_number ? ` · Reg ${m.registration_number}` : ""}${m.garage_name ? ` · ${m.garage_name}` : ""}`}
         actions={
           <>
-            <Button variant="outline" asChild><Link to="/admin/members/$id/print" params={{ id }}><Printer /> Print form</Link></Button>
-            <Button variant="navy" asChild><Link to="/admin/members/$id/edit" params={{ id }}><Pencil /> Edit</Link></Button>
+            <Button asChild variant="outline">
+              <Link to="/admin/members/$id/print" params={{ id }}>
+                <Printer /> Print form
+              </Link>
+            </Button>
+            <Button asChild variant="navy">
+              <Link to="/admin/members/$id/edit" params={{ id }}>
+                <Edit /> Edit
+              </Link>
+            </Button>
           </>
         }
       />
 
-      <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
-        <div className="space-y-4">
-          <div className="rounded-2xl border bg-card p-5 text-center shadow-card">
-            <StorageImage bucket="member-photos" path={m.photo_path} alt={m.full_name} fallbackName={m.full_name} className="mx-auto h-48 w-40 rounded-xl text-4xl" />
-            <p className="mt-4 font-display text-lg font-bold text-navy">{m.full_name}</p>
-            <p className="text-sm text-muted-foreground">{m.garage_name || "No garage name"}</p>
-            <div className="mt-3"><StatusBadge status={m.status} /></div>
-          </div>
-          <div className="space-y-2 rounded-2xl border bg-card p-4 shadow-card">
-            {m.status === "archived" ? (
-              <Button variant="outline" className="w-full" onClick={() => void setStatus("active")}><ArchiveRestore /> Restore member</Button>
-            ) : (
-              <ConfirmDialog
-                trigger={<Button variant="outline" className="w-full"><Archive /> Archive member</Button>}
-                title="Archive this member?"
-                description={<p>{m.full_name} will be hidden from the active directory. You can restore them any time.</p>}
-                confirmLabel="Archive"
-                destructive={false}
-                onConfirm={() => setStatus("archived")}
-              />
-            )}
-            {m.status === "archived" ? (
-              <ConfirmDialog
-                trigger={<Button variant="ghost" className="w-full text-destructive"><Trash2 /> Delete permanently</Button>}
-                title="Permanently delete this member?"
-                description={<p>This removes the record, photo, signature, ID numbers, fee payments and committee roles. It cannot be undone.</p>}
-                confirmLabel="Delete forever"
-                requireText={m.member_number}
-                onConfirm={remove}
-              />
-            ) : (
-              <p className="px-1 text-xs text-muted-foreground">To delete permanently, archive the member first.</p>
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <section className="rounded-2xl border bg-card p-5 shadow-card">
-            <h2 className="mb-2 font-display text-lg font-bold text-navy">Personal & contact</h2>
-            <dl>
-              <Row label="Date of birth" value={formatDate(m.date_of_birth)} />
-              <Row label="Age" value={String(computeAge(m.date_of_birth) ?? "")} />
-              <Row label="Blood group" value={m.blood_group} />
-              <Row label="Nominee" value={m.nominee_name} />
-              <Row label="Cell (WhatsApp)" value={m.mobile} />
-              <Row label="Emergency contact" value={m.emergency_contact} />
-              <Row label="Address" value={m.address} />
-              <Row label="Residence address" value={m.residence_address} />
-            </dl>
-          </section>
-
-          <section className="rounded-2xl border bg-card p-5 shadow-card">
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <h2 className="flex items-center gap-2 font-display text-lg font-bold text-navy"><ShieldCheck className="size-5 text-teal" /> Identity documents</h2>
-              <Button size="sm" variant="outline" onClick={() => void reveal()}>
-                {ids ? <><EyeOff /> Hide</> : <><Eye /> Show full numbers</>}
-              </Button>
+      <div className="grid gap-6 lg:grid-cols-12">
+        <div className="space-y-6 lg:col-span-4">
+          <div className="rounded-2xl border bg-card p-6 text-center shadow-card">
+            <StorageImage
+              bucket="member-photos"
+              path={m.photo_path}
+              alt={m.full_name}
+              className="mx-auto h-44 w-36 rounded-xl border"
+              fallback={
+                <div className="mx-auto grid h-44 w-36 place-items-center rounded-xl bg-accent font-display text-3xl font-bold text-navy">
+                  {initials(m.full_name)}
+                </div>
+              }
+            />
+            <div className="mt-4 flex items-center justify-center gap-2">
+              <StatusBadge status={m.status} />
+              {m.blood_group && (
+                <span className="rounded-full bg-destructive/10 px-2.5 py-0.5 text-xs font-bold text-destructive">
+                  {m.blood_group}
+                </span>
+              )}
+              {m.is_demo && (
+                <span className="rounded bg-gold/30 px-1.5 py-0.5 text-[10px] font-bold">DEMO</span>
+              )}
             </div>
-            <dl>
-              <Row label="Aadhaar" value={ids ? ids.aadhaar_number : maskId(m.aadhaar_last4, "aadhaar")} />
-              <Row label="PAN" value={ids ? ids.pan_number : maskId(m.pan_last4, "pan")} />
-              <Row label="Driving licence" value={ids ? ids.driving_licence_number : maskId(m.dl_last4, "dl")} />
-            </dl>
-            <p className="mt-2 text-xs text-muted-foreground">Viewing full numbers is recorded in the activity log.</p>
-          </section>
-
-          <FeesSection
-            payments={(fees.data ?? []).filter((p) => p.member_id === id)}
-            onAdd={() => setFeeDialog({ open: true, editing: null })}
-            onEdit={(p) => setFeeDialog({ open: true, editing: p })}
-          />
-
-          <section className="rounded-2xl border bg-card p-5 shadow-card">
-            <h2 className="mb-2 font-display text-lg font-bold text-navy">Registration</h2>
-            <dl>
-              <Row label="Registration date" value={formatDate(m.registration_date)} />
-              <Row label="Consent recorded" value={m.consent_given ? "Yes" : "No"} />
-              <Row label="Notes" value={m.notes} />
-              <Row label="Last updated" value={new Date(m.updated_at).toLocaleString("en-IN")} />
-            </dl>
             {m.signature_path && (
-              <div className="mt-3">
-                <p className="mb-1 text-sm text-muted-foreground">Signature</p>
-                <StorageImage bucket="member-signatures" path={m.signature_path} alt="Signature" className="h-16 w-48 rounded border object-contain" />
+              <div className="mt-5 border-t pt-4">
+                <p className="mb-2 text-xs text-muted-foreground">Signature on file</p>
+                <StorageImage
+                  bucket="member-signatures"
+                  path={m.signature_path}
+                  alt="Signature"
+                  className="mx-auto h-14 w-44 rounded border bg-card object-contain"
+                />
               </div>
             )}
-          </section>
+          </div>
+        </div>
+
+        <div className="space-y-6 lg:col-span-8">
+          <Section title="Personal & contact">
+            <dl className="grid gap-4 sm:grid-cols-2">
+              <Field
+                label="Member ID"
+                value={<span className="font-mono">{m.member_number}</span>}
+              />
+              <Field label="Registration No." value={m.registration_number || "—"} />
+              <Field label="Garage name" value={m.garage_name} />
+              <Field label="Date of birth" value={formatDate(m.date_of_birth)} />
+              <Field label="Age" value={computeAge(m.date_of_birth) ?? "—"} />
+              <Field
+                label="Nominee"
+                value={
+                  [m.nominee_name, m.nominee_age !== null ? `(Age ${m.nominee_age})` : ""]
+                    .filter(Boolean)
+                    .join(" ") || "—"
+                }
+              />
+              <Field label="Registration date" value={formatDate(m.registration_date)} />
+              <Field
+                label="Cell (WhatsApp)"
+                value={
+                  m.mobile ? (
+                    <a href={`tel:${m.mobile}`} className="text-brand hover:underline">
+                      {m.mobile}
+                    </a>
+                  ) : (
+                    "—"
+                  )
+                }
+              />
+              <Field label="Emergency contact" value={m.emergency_contact} />
+              <Field
+                label="Address"
+                value={<span className="whitespace-pre-line">{m.address}</span>}
+              />
+              <Field
+                label="Residence address"
+                value={<span className="whitespace-pre-line">{m.residence_address}</span>}
+              />
+            </dl>
+          </Section>
+
+          <Section
+            title="Identity documents"
+            description="Masked by default. Revealing full numbers or opening scans is logged."
+          >
+            <dl className="grid gap-4 sm:grid-cols-3">
+              <Field
+                label="Aadhaar"
+                value={
+                  <span className="font-mono">
+                    {revealed ? revealed.aadhaar_number || "—" : maskId(m.aadhaar_last4, "aadhaar")}
+                  </span>
+                }
+              />
+              <Field
+                label="PAN"
+                value={
+                  <span className="font-mono">
+                    {revealed ? revealed.pan_number || "—" : maskId(m.pan_last4, "pan")}
+                  </span>
+                }
+              />
+              <Field
+                label="Driving licence"
+                value={
+                  <span className="font-mono">
+                    {revealed ? revealed.driving_licence_number || "—" : maskId(m.dl_last4, "dl")}
+                  </span>
+                }
+              />
+            </dl>
+            {attachedDocs.length > 0 && (
+              <div className="mt-4 flex flex-wrap gap-2 border-t pt-4">
+                {attachedDocs.map((doc) => (
+                  <Button
+                    key={doc.label}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void openPrivateDocument(doc.path, doc.label)}
+                  >
+                    <FileText className="size-4" /> Open {doc.label}
+                  </Button>
+                ))}
+              </div>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-4"
+              onClick={() => void toggleReveal()}
+            >
+              {revealed ? <EyeOff /> : <Eye />}{" "}
+              {revealed ? "Hide full numbers & scans" : "Show full numbers & scans"}
+            </Button>
+          </Section>
+
+          <Section title="Fee payments" description={`Total paid: ${formatINR(totalPaid)}`}>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <span
+                className={
+                  paidThisYear
+                    ? "rounded-full bg-success/15 px-3 py-1 text-xs font-semibold text-success"
+                    : "rounded-full bg-warning/20 px-3 py-1 text-xs font-semibold text-warning"
+                }
+              >
+                {paidThisYear ? `Paid for ${year}` : `Not yet paid for ${year}`}
+              </span>
+              <Button
+                size="sm"
+                variant="navy"
+                onClick={() => setFeeDialog({ open: true, editing: null })}
+              >
+                <Plus /> Record payment
+              </Button>
+            </div>
+            {memberPayments.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No payments recorded for this member yet.
+              </p>
+            ) : (
+              <ul className="divide-y text-sm">
+                {memberPayments.map((p) => (
+                  <li
+                    key={p.id}
+                    className="flex flex-wrap items-center justify-between gap-2 py-2.5"
+                  >
+                    <div>
+                      <p className="font-semibold text-navy">
+                        {formatINR(p.amount)} · {p.fee_type}
+                        {p.period ? ` (${p.period})` : ""}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDate(p.paid_on)} · {p.payment_mode} ·{" "}
+                        <span className="font-mono">{p.receipt_number}</span>
+                        {p.notes ? ` · ${p.notes}` : ""}
+                      </p>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button asChild size="sm" variant="ghost" title="Open Fees Ledger">
+                        <Link to="/admin/fees">
+                          <IndianRupee /> Ledger
+                        </Link>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setFeeDialog({ open: true, editing: p })}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive"
+                        onClick={() => setDeletingFee(p)}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Section>
+
+          {(m.notes || m.consent_given) && (
+            <Section title="Notes & consent">
+              <p className="text-xs text-muted-foreground">
+                Consent recorded: {m.consent_given ? "Yes" : "No"}
+              </p>
+              {m.notes && <p className="mt-2 whitespace-pre-line text-sm">{m.notes}</p>}
+            </Section>
+          )}
+
+          <Section
+            title="Archive or remove"
+            description="Archiving hides a member from active lists while keeping past records safe."
+          >
+            <div className="flex flex-wrap gap-3">
+              <Button variant="outline" onClick={() => void toggleArchive()}>
+                {m.status === "archived" ? <ArchiveRestore /> : <Archive />}
+                {m.status === "archived" ? "Restore to active" : "Archive member"}
+              </Button>
+              {m.status === "archived" && (
+                <Button variant="destructive" onClick={() => setConfirmDelete(true)}>
+                  <Trash2 /> Permanently delete
+                </Button>
+              )}
+            </div>
+          </Section>
         </div>
       </div>
+
+      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Permanently delete {m.full_name}?</DialogTitle>
+            <DialogDescription>
+              This deletes member #{m.member_number}, their private IDs, uploaded documents, photo
+              and signature. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDelete(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={() => void removePermanently()}>
+              Delete forever
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <FeeDialog
         open={feeDialog.open}
-        editing={feeDialog.editing}
+        onOpenChange={(open) => setFeeDialog({ open, editing: feeDialog.editing })}
+        members={[m]}
         presetMemberId={id}
-        members={allMembers.data ?? [m]}
-        onOpenChange={(o) => setFeeDialog({ open: o, editing: o ? feeDialog.editing : null })}
+        editing={feeDialog.editing}
       />
-    </div>
-  );
-}
 
-function FeesSection({ payments, onAdd, onEdit }: { payments: FeePayment[]; onAdd: () => void; onEdit: (p: FeePayment) => void }) {
-  const year = String(new Date().getFullYear());
-  const paid = hasPaidAnnual(payments[0]?.member_id ?? "", payments, year);
-  return (
-    <section className="rounded-2xl border bg-card p-5 shadow-card">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 font-display text-lg font-bold text-navy"><IndianRupee className="size-5 text-primary" /> Fees</h2>
-        <Button size="sm" variant="navy" onClick={onAdd}><Plus /> Record payment</Button>
-      </div>
-      <div className="mb-3 flex flex-wrap gap-3 text-sm">
-        <span className="rounded-lg bg-secondary px-3 py-1.5">Total paid: <strong>{formatINR(sumAmounts(payments))}</strong></span>
-        <span className={`rounded-lg px-3 py-1.5 ${paid ? "bg-success/10 text-success" : "bg-warning/10 text-warning"}`}>
-          Yearly fee {year}: <strong>{paid ? "Paid" : "Not recorded"}</strong>
-        </span>
-      </div>
-      {payments.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No payments recorded yet.</p>
-      ) : (
-        <ul className="divide-y text-sm">
-          {payments.map((p) => (
-            <li key={p.id} className="flex items-center gap-3 py-2">
-              <span className="w-24 text-muted-foreground">{formatDate(p.paid_on)}</span>
-              <span className="flex-1">{p.fee_type}{p.period ? ` · ${p.period}` : ""} <span className="text-xs text-muted-foreground">({p.payment_mode}, {p.receipt_number})</span></span>
-              <span className="font-semibold">{formatINR(p.amount)}</span>
-              <Button size="icon" variant="ghost" aria-label="Edit payment" onClick={() => onEdit(p)}><Pencil /></Button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+      <Dialog open={!!deletingFee} onOpenChange={(o) => !o && setDeletingFee(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete receipt {deletingFee?.receipt_number}?</DialogTitle>
+            <DialogDescription>
+              This removes the {formatINR(deletingFee?.amount ?? 0)} payment record.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeletingFee(null)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={() => void deleteFee()}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

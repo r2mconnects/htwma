@@ -115,9 +115,25 @@
   --success: oklch(0.58 0.13 160);
   --warning: oklch(0.72 0.15 70);
 
-  --gradient-hero: linear-gradient(100deg, oklch(0.975 0.012 250) 0%, oklch(0.94 0.03 252) 55%, oklch(0.9 0.05 255) 100%);
-  --gradient-navy: linear-gradient(90deg, oklch(0.24 0.09 263) 0%, oklch(0.32 0.13 262) 60%, oklch(0.45 0.19 262) 100%);
-  --gradient-swoosh: linear-gradient(90deg, transparent 0%, var(--gold) 20%, var(--gold) 70%, transparent 100%);
+  --gradient-hero: linear-gradient(
+    100deg,
+    oklch(0.975 0.012 250) 0%,
+    oklch(0.94 0.03 252) 55%,
+    oklch(0.9 0.05 255) 100%
+  );
+  --gradient-navy: linear-gradient(
+    90deg,
+    oklch(0.24 0.09 263) 0%,
+    oklch(0.32 0.13 262) 60%,
+    oklch(0.45 0.19 262) 100%
+  );
+  --gradient-swoosh: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--gold) 20%,
+    var(--gold) 70%,
+    transparent 100%
+  );
   --shadow-card-value: 0 10px 30px -12px oklch(0.27 0.095 263 / 0.25);
   --shadow-float-value: 0 20px 50px -20px oklch(0.27 0.095 263 / 0.35);
 

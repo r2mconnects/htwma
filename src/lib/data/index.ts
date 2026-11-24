@@ -1,29 +1,24 @@
 import type { DataProvider } from "./provider";
-import { createLocalProvider } from "./local/local-provider";
 import { createSupabaseProvider } from "./supabase/supabase-provider";
 
+const FALLBACK_SUPABASE_URL = "https://szxfrbrppkofeoojzewq.supabase.co";
+const FALLBACK_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_j-dn9fd240khu7AC5LeASw_JRc8GzsN";
+
 /**
- * ===== BACKEND SWITCH =====
- * Default: "local" (browser storage). To use Supabase, set in your .env:
- *   VITE_DATA_BACKEND=supabase
- *   VITE_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
- *   VITE_SUPABASE_ANON_KEY=your-anon-or-publishable-key
- * Nothing else in the app needs to change.
+ * Connects the application to the HTWMA Supabase PostgreSQL backend.
+ * Reads VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (or VITE_SUPABASE_PUBLISHABLE_KEY)
+ * from environment variables, with public project defaults so preview/edge builds work seamlessly.
+ * All data access is protected server-side by Supabase Row Level Security (RLS).
  */
-function pickProvider(): DataProvider {
+function initProvider(): DataProvider {
   const env = import.meta.env;
-  const backend = env["VITE_DATA_BACKEND"] as string | undefined;
-  const url = env["VITE_SUPABASE_URL"] as string | undefined;
-  const key = (env["VITE_SUPABASE_ANON_KEY"] ?? env["VITE_SUPABASE_PUBLISHABLE_KEY"]) as string | undefined;
-  if (backend === "supabase") {
-    if (!url || !key) {
-      console.warn("VITE_DATA_BACKEND=supabase but Supabase URL/key are missing — falling back to local storage.");
-      return createLocalProvider();
-    }
-    return createSupabaseProvider(url, key);
-  }
-  return createLocalProvider();
+  const url = (env["VITE_SUPABASE_URL"] as string | undefined)?.trim() || FALLBACK_SUPABASE_URL;
+  const key =
+    (
+      (env["VITE_SUPABASE_ANON_KEY"] ?? env["VITE_SUPABASE_PUBLISHABLE_KEY"]) as string | undefined
+    )?.trim() || FALLBACK_SUPABASE_PUBLISHABLE_KEY;
+  return createSupabaseProvider(url, key);
 }
 
-export const db: DataProvider = pickProvider();
+export const db: DataProvider = initProvider();
 export * from "./types";

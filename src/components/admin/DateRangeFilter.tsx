@@ -1,5 +1,11 @@
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { RANGE_PRESETS, presetRange, type DateRange, type RangePreset } from "@/lib/fees";
 import { cn } from "@/lib/utils";
 
@@ -29,7 +35,10 @@ export function DateRangeFilter({
 }) {
   return (
     <div className={cn("flex flex-wrap items-center gap-2", className)}>
-      <Select value={value.preset} onValueChange={(v) => onChange({ ...value, preset: v as RangePreset })}>
+      <Select
+        value={value.preset}
+        onValueChange={(v) => onChange({ ...value, preset: v as RangePreset })}
+      >
         <SelectTrigger className="min-w-44 sm:w-52" aria-label={label}>
           <SelectValue />
         </SelectTrigger>
@@ -43,9 +52,21 @@ export function DateRangeFilter({
       </Select>
       {value.preset === "custom" && (
         <>
-          <Input type="date" aria-label="From date" className="w-40" value={value.from} onChange={(e) => onChange({ ...value, from: e.target.value })} />
+          <Input
+            type="date"
+            aria-label="From date"
+            className="w-40"
+            value={value.from}
+            onChange={(e) => onChange({ ...value, from: e.target.value })}
+          />
           <span className="text-sm text-muted-foreground">to</span>
-          <Input type="date" aria-label="To date" className="w-40" value={value.to} onChange={(e) => onChange({ ...value, to: e.target.value })} />
+          <Input
+            type="date"
+            aria-label="To date"
+            className="w-40"
+            value={value.to}
+            onChange={(e) => onChange({ ...value, to: e.target.value })}
+          />
         </>
       )}
     </div>

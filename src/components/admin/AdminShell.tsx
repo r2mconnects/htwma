@@ -7,6 +7,8 @@ import {
   UserPlus,
   Award,
   Images,
+  Megaphone,
+  MessageSquare,
   FileSpreadsheet,
   Settings,
   LogOut,
@@ -16,6 +18,7 @@ import {
   IndianRupee,
 } from "lucide-react";
 import { db } from "@/lib/data";
+import { useContactMessages } from "@/lib/data/hooks";
 import { Logo } from "@/components/site/Logo";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -28,15 +31,18 @@ const NAV = [
   { to: "/admin/fees", label: "Fees", icon: IndianRupee, exact: false },
   { to: "/admin/committee", label: "Committee", icon: Award, exact: false },
   { to: "/admin/gallery", label: "Gallery", icon: Images, exact: false },
+  { to: "/admin/announcements", label: "Announcements", icon: Megaphone, exact: false },
+  { to: "/admin/messages", label: "Messages", icon: MessageSquare, exact: false },
   { to: "/admin/import-export", label: "Import / Export", icon: FileSpreadsheet, exact: false },
   { to: "/admin/registration-form", label: "Blank Form", icon: Printer, exact: false },
   { to: "/admin/settings", label: "Settings", icon: Settings, exact: false },
 ] as const;
 
-function NavList({ onNavigate }: { onNavigate?: () => void }) {
+function NavList({ onNavigate, unreadCount }: { onNavigate?: () => void; unreadCount: number }) {
   const path = useRouterState({ select: (r) => r.location.pathname });
   const isActive = (to: string, exact: boolean) => {
-    if (to === "/admin/members") return path === "/admin/members" || (/^\/admin\/members\/(?!new)/.test(path));
+    if (to === "/admin/members")
+      return path === "/admin/members" || /^\/admin\/members\/(?!new)/.test(path);
     return exact ? path === to : path.startsWith(to);
   };
   return (
@@ -54,7 +60,12 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
           )}
         >
           <n.icon className="size-[18px]" />
-          {n.label}
+          <span className="flex-1 truncate">{n.label}</span>
+          {n.to === "/admin/messages" && unreadCount > 0 && (
+            <span className="rounded-full bg-gold px-2 py-0.5 text-[11px] font-bold text-navy">
+              {unreadCount}
+            </span>
+          )}
         </Link>
       ))}
     </nav>
@@ -65,6 +76,8 @@ export function AdminShell() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const messages = useContactMessages();
+  const unreadCount = (messages.data ?? []).filter((m) => m.status === "unread").length;
 
   async function signOut() {
     await qc.cancelQueries();
@@ -74,28 +87,34 @@ export function AdminShell() {
   }
 
   const sidebarBody = (onNavigate?: () => void) => (
-    <div className="flex h-full flex-col gap-6 p-4">
+    <div className="flex h-full flex-col gap-5 overflow-y-auto p-4">
       <Link to="/admin" onClick={onNavigate} className="px-1 pt-2">
         <Logo tone="light" compact />
       </Link>
-      <NavList {...(onNavigate ? { onNavigate } : {})} />
+      <NavList unreadCount={unreadCount} {...(onNavigate ? { onNavigate } : {})} />
       <div className="mt-auto space-y-1 border-t border-sidebar-border pt-4">
-        <Link to="/" target="_blank" className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent">
+        <Link
+          to="/"
+          target="_blank"
+          className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent"
+        >
           <ExternalLink className="size-[18px]" /> View website
         </Link>
-        <button onClick={signOut} className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent">
+        <button
+          onClick={() => void signOut()}
+          className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent"
+        >
           <LogOut className="size-[18px]" /> Sign out
         </button>
-        {db.kind === "local" && (
-          <p className="px-3.5 pt-2 text-[11px] leading-snug text-sidebar-foreground/60">Local mode · data saved in this browser</p>
-        )}
       </div>
     </div>
   );
 
   return (
     <div className="flex min-h-screen w-full bg-muted/40 print:bg-card">
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 bg-sidebar lg:block print:hidden">{sidebarBody()}</aside>
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 bg-sidebar lg:block print:hidden">
+        {sidebarBody()}
+      </aside>
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b bg-card px-4 lg:hidden print:hidden">
           <Sheet open={open} onOpenChange={setOpen}>

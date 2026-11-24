@@ -1,4 +1,6 @@
+import { EMPTY_SENSITIVE } from "@/lib/data/defaults";
 import type { Member, MemberInput, MemberSensitive } from "@/lib/data/types";
+import { isoDay } from "@/lib/fees";
 
 export const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
 
@@ -11,7 +13,8 @@ export function computeAge(dob: string | null, today: Date = new Date()): number
   const mo = Number(m[2]);
   const d = Number(m[3]);
   const birth = new Date(y, mo - 1, d);
-  if (birth.getFullYear() !== y || birth.getMonth() !== mo - 1 || birth.getDate() !== d) return null;
+  if (birth.getFullYear() !== y || birth.getMonth() !== mo - 1 || birth.getDate() !== d)
+    return null;
   if (birth > today) return null;
   let age = today.getFullYear() - y;
   const beforeBirthday =
@@ -44,7 +47,7 @@ export function isValidPan(value: string): boolean {
 }
 export function isValidDrivingLicence(value: string): boolean {
   const v = value.replace(/[\s-]/g, "");
-  return /^[A-Za-z0-9]{8,20}$/.test(v);
+  return /^[A-Za-z0-9]{8,25}$/.test(v);
 }
 
 export function last4(value: string): string {
@@ -82,7 +85,9 @@ export function initials(name: string): string {
   );
 }
 
-export function sensitiveLast4(s: MemberSensitive) {
+export function sensitiveLast4(
+  s: Pick<MemberSensitive, "aadhaar_number" | "pan_number" | "driving_licence_number">,
+) {
   return {
     aadhaar_last4: s.aadhaar_number ? last4(s.aadhaar_number) : "",
     pan_last4: s.pan_number ? last4(s.pan_number) : "",
@@ -93,6 +98,7 @@ export function sensitiveLast4(s: MemberSensitive) {
 export function emptyMemberInput(): MemberInput {
   return {
     member_number: "",
+    registration_number: "",
     full_name: "",
     garage_name: "",
     photo_path: null,
@@ -101,20 +107,23 @@ export function emptyMemberInput(): MemberInput {
     date_of_birth: null,
     blood_group: "",
     nominee_name: "",
+    nominee_age: null,
     mobile: "",
+    whatsapp_number: "",
     emergency_contact: "",
     signature_path: null,
     status: "active",
-    registration_date: new Date().toISOString().slice(0, 10),
+    registration_date: isoDay(new Date()),
     consent_given: false,
     notes: "",
-    sensitive: { aadhaar_number: "", pan_number: "", driving_licence_number: "" },
+    sensitive: { ...EMPTY_SENSITIVE },
   };
 }
 
 export function memberToInput(m: Member, sensitive: MemberSensitive): MemberInput {
   return {
     member_number: m.member_number,
+    registration_number: m.registration_number ?? "",
     full_name: m.full_name,
     garage_name: m.garage_name,
     photo_path: m.photo_path,
@@ -123,14 +132,16 @@ export function memberToInput(m: Member, sensitive: MemberSensitive): MemberInpu
     date_of_birth: m.date_of_birth,
     blood_group: m.blood_group,
     nominee_name: m.nominee_name,
+    nominee_age: m.nominee_age ?? null,
     mobile: m.mobile,
+    whatsapp_number: m.whatsapp_number || m.mobile,
     emergency_contact: m.emergency_contact,
     signature_path: m.signature_path,
     status: m.status,
     registration_date: m.registration_date,
     consent_given: m.consent_given,
     notes: m.notes,
-    sensitive,
+    sensitive: { ...EMPTY_SENSITIVE, ...sensitive },
   };
 }
 

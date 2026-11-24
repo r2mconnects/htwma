@@ -2,7 +2,14 @@ import { useState } from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import type { Member } from "@/lib/data/types";
 import { cn } from "@/lib/utils";
 
@@ -24,8 +31,16 @@ export function MemberPicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button id={id} variant="outline" role="combobox" disabled={disabled} className="mt-1.5 w-full justify-between font-normal">
-          <span className="truncate">{chosen ? `#${chosen.member_number} · ${chosen.full_name}` : "Search members…"}</span>
+        <Button
+          id={id}
+          variant="outline"
+          role="combobox"
+          disabled={disabled}
+          className="mt-1.5 w-full justify-between font-normal"
+        >
+          <span className="truncate">
+            {chosen ? `#${chosen.member_number} · ${chosen.full_name}` : "Search members…"}
+          </span>
           <ChevronsUpDown className="opacity-50" />
         </Button>
       </PopoverTrigger>
